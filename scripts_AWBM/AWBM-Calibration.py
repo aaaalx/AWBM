@@ -57,7 +57,7 @@ date_end_test = ''
 
 
 # Constants: Model params which aren't going to change between simulations
-A = 3868.96623 # Catchment area in km^2
+A = 3868.966 # Catchment area in km^2
     #3868.96623 km^2 (3868966234.0000 m^2) from 'Catchment_combined_gregors' shapefile
     #7020 km^2 from: https://www.seqwater.com.au/dams/wivenhoe
     #5360 km^2 from: https://www.researchgate.net/publication/242172986_Maximising_Water_Storage_in_South_East_Queensland_Reservoirs_Evaluating_the_Impact_of_Runoff_Interception_by_Farm_Dams
