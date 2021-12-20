@@ -13,26 +13,21 @@ testing period
 # Setup
 # =============================================================================
 # conda install -c anaconda git
-import os                                     
+import os     
+import time                                
 import numpy as np                             
 import pandas as pd                           
-#import matplotlib
-# import matplotlib.pyplot as plt               
-# import matplotlib.dates as mdates
-# import matplotlib.font_manager as font_manager
-# from datetime import date       
-import datetime      
-#import matplotlib.font_manager          
-#import openpyxl
+import datetime 
+from AWBM_function import AWBM_function   
+  
 import hydroeval as he
     # https://pypi.org/project/hydroeval/
     # Hallouin, T. (XXXX). HydroEval: Streamflow Simulations Evaluator (Version X.X.X). Zenodo. https://doi.org/10.5281/zenodo.2591217
 # from scripts_AWBM import AWBM_function
-import time
+
 from alive_progress import alive_it
+    # https://github.com/rsalmei/alive-progress/blob/main/README.md
 
-
-# from AWBM_function import AWBM_function
 
 
 
@@ -48,7 +43,7 @@ print('Loading user inputs...')
 infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
     # Data source: SILO gridded data (.nc files processed with https://github.com/aaaalx/AWBM_data_processing)
     # has 1 header row
-    # Date, P[mm], E[mm?] (need to check evap units again)
+    # Date, P[mm], E[mm] (might need to check evap units again)
     # Date in the format 1985-01-01T00:00:00
 
 # infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A BRISBANE RIVER AT GREGORS CREEK/143009A.csv' # csv containing observed streamflow data from gauge
@@ -87,6 +82,7 @@ infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211
     # 1/1/1985 is on (excel) row 8369, day 8369-4
     # 1/1/2021 is on (excel) row 21518, day 21518-4
 
+
 # Folder dirs, must end with "/"
 # dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
 # dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
@@ -96,20 +92,20 @@ dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Dir
 dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-# Dates (try to match (or convert to?) the date formats from .nc files)
+outfile_prefix = 'results_ExportTest-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 
+# Dates (year,month,day)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+    
     # Calibration period: Make sure the range selected matches with initial storage assumptions
+date_start_cal = datetime.datetime(1985,1,1)
+date_end_cal = datetime.datetime(1985,3,13) 
 
-date_start_cal = datetime.datetime(1985,1,1) 
-date_end_cal = datetime.datetime(1985,3,1) 
-
-    # Testing period
+    # Testing period:
+    # TODO: Auto check that calibration and testing periods don't overlap?
 date_start_test = datetime.datetime(1985,1,1) 
 date_end_test = datetime.datetime(2020,12,31)
 
-###########
-
-    
 # C_i parameter ranges [min,(max+1)] (from ewater AWBM wiki)
 bounds_C1 = range(0,51) # 7 -> 50
 bounds_C2 = range(70,201) # 70 -> 200
@@ -119,6 +115,7 @@ bounds_Cavg = range(70,75) # 70 -> 130
 C1_Favg = float(0.075)
 C2_Favg = float(0.762)
 C3_Favg = float(1.524)
+C_decimal = 3  # number of decimals to round C
 
 # A_i scenarios [A_1_i,A_2_i,A_3_i]
 # e.g. Calling A_1_i2 with bounds_A[0][1]
@@ -169,7 +166,7 @@ tic = time.time()
 df_SILO_data_in = pd.read_csv(infile_SILO)
 df_SILO_data_in['Date'] = df_SILO_data_in['Date'].apply(pd.to_datetime) #convert Date column to datetime format(https://stackoverflow.com/questions/13654699/reindexing-pandas-timeseries-from-object-dtype-to-datetime-dtype)
 df_SILO_data_in = df_SILO_data_in.set_index('Date') # sets the date column as the index
-df_SILO_data_in['dS'] = df_SILO_data_in['P[mm]'] - df_SILO_data_in['E[mm?]']
+df_SILO_data_in['dS'] = df_SILO_data_in['P[mm]'] - df_SILO_data_in['E[mm]']
 toc = time.time() - tic
 print(f'Loaded SILO data from: {infile_SILO}')
 
@@ -179,7 +176,7 @@ df_Gauge_data_in = pd.read_csv(infile_gauge)
     # 3 rows of header to skip
     # 'Time', '143009A.10' (discharge total ML/day)
     
-col_keep = ['Time','143009A.10','Unnamed: 20'] 
+col_keep = ['Time','143009A.10','Unnamed: 20'] # Unnamed:20 is the data quality column for discharge
 df_Gauge_data = df_Gauge_data_in[col_keep]
 
 df_Gauge_data.columns = df_Gauge_data.iloc[1] # Renames the df headers
@@ -200,24 +197,38 @@ df_Gauge_data_cal = df_Gauge_data[date_start_cal:date_end_cal]
 toc = time.time() - tic
 print(f'Input data cropped to calibration period {str(date_start_cal)[:-9]}:{str(date_end_cal)[:-9]}')
 
-# remove the input datasets from memory
-# del df_SILO_data_in
-# del df_Gauge_data_in, df_Gauge_data
+# remove the full input datasets from memory
+del df_SILO_data_in
+del df_Gauge_data_in
 # =============================================================================
 #%% Running AWBM + Skill Scores + Saving  
 # =============================================================================
-print(' ')
-print(' Running the AWBM ...')
+print('\n Running the AWBM ...')
 
 # Initialise variables
-dS = df_SILO_data_cal['dS']
-dS = dS.reset_index()
-days = np.shape(df_SILO_data_cal)[0] # number of days in cal period
 
+# Weather observations (split into pd series for easier indexing)
+# df_SILO_data_cal = df_SILO_data_cal.reset_index()
+
+# E_cal = df_SILO_data_cal['E[mm]']
+# P_cal = df_SILO_data_cal['P[mm]']
+dS_cal = df_SILO_data_cal['dS']
+
+# E_cal = E_cal.reset_index()
+# E_cal = E_cal.rename(columns= {'index': 'Day'})
+# P_cal = P_cal.reset_index()
+# P_cal = P_cal.rename(columns= {'index': 'Day'})
+dS_cal = dS_cal.reset_index()
+dS_cal = dS_cal.rename(columns= {'index': 'Day'})
+
+
+days = np.shape(df_SILO_data_cal)[0] # number of days in cal period
+# del df_SILO_data_cal 
 
 # Set up results DF
 df_run_headers = ['Date'
-                  , 'dS'
+                   ,'P','E'
+                  ,'dS'
                   ,'S1','S2','S3'
                   ,'S1_E', 'S2_E', 'S3_E', 'Total_Excess'
                   , 'BFR', 'SFR' #Base Flow Recharge, Surface Flow Recharge
@@ -227,35 +238,33 @@ df_run_headers = ['Date'
 
 
     
-# TODO: Remove the \n and set up the log file to be able to write the skill
-#       Scores to the end of each sim so that it's all in the one location.
-with open(dir_log + 'sim_log.csv', 'a') as log: 
-    log.write('[Date],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm] \n')
-    log.write('Start_time,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg \n')
 
-total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be simulated
-
-
-
+total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be simulated for all scenarios
 #%% Simulation Loop
-# for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
+sim = int() # sim counter for output filenames
+with open(dir_log + 'sim_log.csv', 'a') as log: # TODO: could change the 'a' to allow overwrites with updating filenames
+    log.write('[-],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm],[m^3],[-],[-],[-],[-] \n')
+    log.write('filename,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg,Qsum,R2,NSE,RMSE,PBIAS \n')
+
+# for Cavg_i in alive_it(bounds_Cavg): #alive_it() for console progress bar
 for Cavg_i in bounds_Cavg:
+    sim = sim + 1
     # update variables for sim run
-    # TODO: round C values to x decimal places?
-    C1 = Cavg_i * C1_Favg
-    C2 = Cavg_i * C2_Favg
-    C3 = Cavg_i * C3_Favg
+    
+    C1 = round(Cavg_i * C1_Favg,C_decimal)
+    C2 = round(Cavg_i * C2_Favg,C_decimal)
+    C3 = round(Cavg_i * C3_Favg,C_decimal)
     A1 = bounds_A[0]
     A2 = bounds_A[1]
     A3 = bounds_A[2]    
 
-    
-    with open(dir_log + 'sim_log.csv', 'a') as log: 
-        log.write(f'{time_scriptstart},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i} \n')
-            
+    df_SILO_data_cal['E[mm]']        
     # reset the data between sims & set formatting    
     day0_data = [date_start_cal
-               , dS['dS'][0] # dS
+                , df_SILO_data_cal.loc[date_start_cal,'P[mm]']   
+                , df_SILO_data_cal.loc[date_start_cal,'E[mm]']
+                # , df_SILO_data_cal.loc[0, 'dS'] # dS from day 0
+               , dS_cal.loc[0, 'dS'] # dS from day 0
                , S1_0, S2_0,S3_0
                ,float(),float(),float(),float() # Si_E & Total_Excess
                ,float(),float() # BFR & SFR
@@ -264,104 +273,29 @@ for Cavg_i in bounds_Cavg:
                ]
     
     df = pd.DataFrame([], columns = df_run_headers) # creates the df
-    df.loc[0] = day0_data # sets the first day's data
-    # gives df the full dS from the SILO data
-    df = df.append(dS[1:])
-    df = df.reset_index()
-    df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting
+    df.loc[0] = day0_data # sets the first day's data as above
+    
+    
+    # df = df.append(df_SILO_data_cal.loc['dS']) # Append the remaining weather data
+    # df = df.append(P_cal[1:])
+    # df = df.append(E_cal[1:])     
+    df = df.append(dS_cal[1:])
+
     
     
     
     for i_day in range(0,days): # loops through each day in a simulation
-        if i_day == 0: # set up condition for first timestep
-            print(f'Setting up first timestep... {C1},{C2},{C3}')
+        time_simstart = time.ctime()
+        AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
+    
+    df = df.reset_index()
+    df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
+    Qsum_i = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
+    
+    print('Calculating Skill Scores...')    
             
-            #df.loc[row,col]
-            # df.loc[i_day, ]
-            
-            # Calculating storage levels and overflows 
-            S1_t = max(df.loc[i_day,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
-            df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
-            df.loc[i_day, 'S1'] = min(S1_t,C1) # writes the new storage to df
-            
-            S2_t = max(df.loc[i_day,'S2']+df.loc[i_day,'dS'],0) 
-            df.loc[i_day,'S2_E'] = max(S2_t - C1,0) 
-            df.loc[i_day, 'S2'] = min(S2_t,C1) 
-            
-            S3_t = max(df.loc[i_day,'S3']+df.loc[i_day,'dS'],0) 
-            df.loc[i_day,'S3_E'] = max(S3_t - C1,0) 
-            df.loc[i_day, 'S3'] = min(S3_t,C1) 
-            
-            df.loc[i_day,'Total_Excess'] =( # Calculates sum of A_i*S_i_E 
-                A1*df.loc[i_day,'S1_E'] +
-                A2*df.loc[i_day,'S2_E'] +
-                A3*df.loc[i_day,'S3_E'] )
-            
-            df.loc[i_day,'BFR'] = df.loc[i_day,'Total_Excess'] * BFI # calc base flow recharge
-            df.loc[i_day,'SFR'] = df.loc[i_day,'Total_Excess'] * (1-BFI)# calc surface flow recharge
-  
-            BS_t = df.loc[i_day,'BFR'] + BS_0 # calc new Baseflow storage level
-            df.loc[i_day,'Qbase'] = (1-Kbase)*BS_t
-            df.loc[i_day,'BS'] = max(BS_t - df.loc[i_day,'Qbase'],0) # calc baseflow
-            
-            SS_t = df.loc[i_day,'SFR'] + SS_0 # calc new Baseflow storage level
-            df.loc[i_day,'Qsurf'] = (1-Kbase)*BS_t
-            df.loc[i_day,'SS'] = max(SS_t - df.loc[i_day,'Qsurf'],0) # calc baseflow   
-       
-            df.loc[i_day,'Qtotal'] = df.loc[i_day,'Qsurf'] + df.loc[i_day,'Qsurf'] # calc total outflow in [mm]/[catchment size]
-            # calc total outflow in m^3 per timestep (i.e. day)
-            df.loc[i_day,'Q'] = (df.loc[i_day,'Qtotal']*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
-                # 1e6 to convert catchment size from km^2 to m^2
-                # 1e-3 to convert Qtotal from mm to m             
-            
-            print(f"...Done day0 Q = {df.loc[i_day,'Q']} [m^3]")
-            
-            
-            
-        else: # for all subsequent timesteps
-            # first, update the day column in df                             
-            df.loc[i_day,'dS'] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
-                        
-            
-            # Calculating storage levels and overflows 
-            S1_t = max(df.loc[i_day-1,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
-            df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
-            df.loc[i_day, 'S1'] = min(S1_t,C1) # writes the new storage to df
-            
-            S2_t = max(df.loc[i_day-1,'S2']+df.loc[i_day,'dS'],0) 
-            df.loc[i_day,'S2_E'] = max(S2_t - C1,0) 
-            df.loc[i_day, 'S2'] = min(S2_t,C1) 
-            
-            S3_t = max(df.loc[i_day-1,'S3']+df.loc[i_day,'dS'],0) 
-            df.loc[i_day,'S3_E'] = max(S3_t - C1,0) 
-            df.loc[i_day, 'S3'] = min(S3_t,C1) 
-            
-            df.loc[i_day,'Total_Excess'] =( # Calculates sum of A_i*S_i_E 
-                A1*df.loc[i_day,'S1_E'] +
-                A2*df.loc[i_day,'S2_E'] +
-                A3*df.loc[i_day,'S3_E'] )
-            
-            df.loc[i_day,'BFR'] = df.loc[i_day,'Total_Excess'] * BFI # calc base flow recharge
-            df.loc[i_day,'SFR'] = df.loc[i_day,'Total_Excess'] * (1-BFI)# calc surface flow recharge
-  
-            BS_t = df.loc[i_day,'BFR'] + df.loc[i_day-1,'BS'] # calc new Baseflow storage level
-            df.loc[i_day,'Qbase'] = (1-Kbase)*BS_t
-            df.loc[i_day,'BS'] = max(BS_t - df.loc[i_day,'Qbase'],0) # calc baseflow
-            
-            SS_t = df.loc[i_day,'SFR'] + df.loc[i_day-1,'SS'] # calc new Baseflow storage level
-            df.loc[i_day,'Qsurf'] = (1-Kbase)*BS_t
-            df.loc[i_day,'SS'] = max(SS_t - df.loc[i_day,'Qsurf'],0) # calc baseflow   
-       
-            df.loc[i_day,'Qtotal'] = df.loc[i_day,'Qsurf'] + df.loc[i_day,'Qsurf'] # calc total outflow in [mm]/[catchment size]
-            # calc total outflow in m^3 per timestep (i.e. day)
-            df.loc[i_day,'Q'] = (df.loc[i_day,'Qtotal']*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
-                # 1e6 to convert catchment size from km^2 to m^2
-                # 1e-3 to convert Qtotal from mm to m  
-                
-    ###### TODO:  test, then move back to the function file          
 
-    print('Model run complete')    
-    #%%Calculate skill scores
+    #%% Calculate skill scores
     sim_Q = df['Q']
     obs_Q = df_Gauge_data_cal['Volume m^3']
     
@@ -375,6 +309,28 @@ for Cavg_i in bounds_Cavg:
     
     # save SS to sim_log.csv or memory
     
+    #%% Write results 
+    
+    out_filename = (outfile_prefix + str(sim) +'.csv')
+    
+    with open(dir_log + 'sim_log.csv', 'a') as log: 
+        log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_i},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
     
     
-print('fin')
+    df.to_csv((dir_results+out_filename), index=False)
+    
+
+
+# =============================================================================
+#%% Post-processing and plotting 
+# =============================================================================
+# input('Press Enter to start plotting')
+
+
+
+# TODO: Timeseries plot of sim_Q and obs_Q only over the calibration date range
+
+# TODO: Maybe Add in a combined hyeto/hydro timeseries plot
+
+print('Script complete')
+
