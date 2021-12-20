@@ -92,7 +92,8 @@ dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Dir
 dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_ExportTest-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_ExportTest2-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
 # TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
@@ -110,7 +111,7 @@ date_end_test = datetime.datetime(2020,12,31)
 bounds_C1 = range(0,51) # 7 -> 50
 bounds_C2 = range(70,201) # 70 -> 200
 bounds_C3 = range(150,501) # 150 -> 500
-bounds_Cavg = range(70,75) # 70 -> 130
+bounds_Cavg = range(70,150) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
 C2_Favg = float(0.762)
@@ -208,16 +209,9 @@ print('\n Running the AWBM ...')
 # Initialise variables
 
 # Weather observations (split into pd series for easier indexing)
-# df_SILO_data_cal = df_SILO_data_cal.reset_index()
-
-# E_cal = df_SILO_data_cal['E[mm]']
-# P_cal = df_SILO_data_cal['P[mm]']
 dS_cal = df_SILO_data_cal['dS']
 
-# E_cal = E_cal.reset_index()
-# E_cal = E_cal.rename(columns= {'index': 'Day'})
-# P_cal = P_cal.reset_index()
-# P_cal = P_cal.rename(columns= {'index': 'Day'})
+
 dS_cal = dS_cal.reset_index()
 dS_cal = dS_cal.rename(columns= {'index': 'Day'})
 
@@ -243,8 +237,8 @@ total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be 
 #%% Simulation Loop
 sim = int() # sim counter for output filenames
 with open(dir_log + 'sim_log.csv', 'a') as log: # TODO: could change the 'a' to allow overwrites with updating filenames
-    log.write('[-],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm],[m^3],[-],[-],[-],[-] \n')
-    log.write('filename,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg,Qsum,R2,NSE,RMSE,PBIAS \n')
+    log.write('[-],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm],[m^3],[m^3],[-],[-],[-],[-] \n')
+    log.write('filename,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg,Qsum_sim,Qsum_obs,R2,NSE,RMSE,PBIAS \n')
 
 # for Cavg_i in alive_it(bounds_Cavg): #alive_it() for console progress bar
 for Cavg_i in bounds_Cavg:
@@ -275,10 +269,7 @@ for Cavg_i in bounds_Cavg:
     df = pd.DataFrame([], columns = df_run_headers) # creates the df
     df.loc[0] = day0_data # sets the first day's data as above
     
-    
-    # df = df.append(df_SILO_data_cal.loc['dS']) # Append the remaining weather data
-    # df = df.append(P_cal[1:])
-    # df = df.append(E_cal[1:])     
+   
     df = df.append(dS_cal[1:])
 
     
@@ -290,7 +281,8 @@ for Cavg_i in bounds_Cavg:
     
     df = df.reset_index()
     df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
-    Qsum_i = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
+    # TODO: consider making date the index for df again if I find any issues with graphing sim_Q vs obs_Q
+
     
     print('Calculating Skill Scores...')    
             
@@ -298,6 +290,13 @@ for Cavg_i in bounds_Cavg:
     #%% Calculate skill scores
     sim_Q = df['Q']
     obs_Q = df_Gauge_data_cal['Volume m^3']
+    
+    Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
+    Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
+    
+    correlation_matrix = np.corrcoef(Qsum_sim,Qsum_obs)
+    correlation_xy = correlation_matrix[0,1]
+    ss_r2_Qsum = correlation_xy**2
     
     correlation_matrix = np.corrcoef(sim_Q,obs_Q)
     correlation_xy = correlation_matrix[0,1]
@@ -307,14 +306,12 @@ for Cavg_i in bounds_Cavg:
     ss_rmse_Q = float(he.evaluator(he.rmse, sim_Q, obs_Q))
     ss_pbias_Q = float(he.evaluator(he.pbias, sim_Q, obs_Q))
     
-    # save SS to sim_log.csv or memory
-    
     #%% Write results 
     
     out_filename = (outfile_prefix + str(sim) +'.csv')
     
     with open(dir_log + 'sim_log.csv', 'a') as log: 
-        log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_i},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
+        log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_sim},{Qsum_obs},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
     
     
     df.to_csv((dir_results+out_filename), index=False)
