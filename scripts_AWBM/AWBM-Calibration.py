@@ -29,7 +29,7 @@ import datetime
     # Hallouin, T. (XXXX). HydroEval: Streamflow Simulations Evaluator (Version X.X.X). Zenodo. https://doi.org/10.5281/zenodo.2591217
 # from scripts_AWBM import AWBM_function
 import time
-import csv
+# import csv
 
 tic_script = time.time() #starts the run time timer
 # =============================================================================
@@ -94,6 +94,27 @@ date_start_test = datetime.datetime(1985,1,1)
 date_end_test = datetime.datetime(2020,12,31)
 
 ###########
+
+    
+# C_i parameter ranges [min,(max+1)] (from ewater AWBM wiki)
+bounds_C1 = range(0,51) # 7 -> 50
+bounds_C2 = range(70,201) # 70 -> 200
+bounds_C3 = range(150,501) # 150 -> 500
+bounds_Cavg = range(70,131) 
+# for using the Average capacity calibration from (B,2004)
+C1_Favg = float(0.075)
+C2_Favg = float(0.762)
+C3_Favg = float(1.524)
+
+# A_i scenarios [A_1_i,A_2_i,A_3_i]
+# e.g. Calling A_1_i2 with bounds_A[0][1]
+bounds_A = ([0.134,0.433,0.433] #i1
+            # ,[0.134,0.433,0.433] #i2
+            # ,[0.134,0.433,0.433] #i3
+            # ,[0.134,0.433,0.433] #i4
+            # ,[0.134,0.433,0.433] #i5
+            )
+
 # Constants: Model params which aren't going to change between simulations
 A = 3868.966716 # Catchment area in km^2
     #3868.96623 km^2 (3868966234.0000 m^2) from 'Catchment_combined_gregors' shapefile
@@ -112,39 +133,14 @@ Kbase = float(0.95)     # Baseflow recession constant [0-1]
     #QLD average =0.95 (Boughton, 2009)
 Ksurf = float(0.35)     # Surface flow recession constant [0-1]
     #13.4/43.3/43.3 = Default (Barret et al., 2008)
-    
-# C_i parameter ranges [min,(max+1)]
-bounds_C1 = range(0,81)
-bounds_C2 = range(50,401)
-bounds_C3 = range(100,401)
-bounds_Cavg = range(70,130) # for using the single parameter calibration
-
-# A_i scenarios [A_1_i,A_2_i,A_3_i]
-# e.g. Calling A_1_i2 with bounds_A[0][1]
-bounds_A = ([0.134,0.433,0.433] #i1
-            ,[0.134,0.433,0.433] #i2
-            ,[0.134,0.433,0.433] #i3
-            ,[0.134,0.433,0.433] #i4
-            )
 
 
-
-# TODO: Copy log file set up from the TERN_download script
-    # Include col:
-        # Time of simulation
-        # "sim X of nSim"
-        # Start/End of calibration period
-        # R^2
-        # NSE
-        # Any other skill score
-        # C_i and A_i
-        # Initial values
-        # All other model parameters
+time_scriptstart = time.ctime()
         
 with open(dir_log + 'setup_log.csv', 'a') as log: 
-    log.write('[Date],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm] \n')
-    log.write('Start_time,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3 \n')
-    log.write(f'{time.ctime()},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}","{bounds_C1[0]}-{bounds_C1[-1]}","{bounds_C2[0]}-{bounds_C2[-1]}","{bounds_C3[0]}-{bounds_C3[-1]}" \n')
+    log.write('[Date],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm] \n')
+    log.write('Start_time,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg \n')
+    log.write(f'{time_scriptstart},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}","{bounds_C1[0]}-{bounds_C1[-1]}","{bounds_C2[0]}-{bounds_C2[-1]}","{bounds_C3[0]}-{bounds_C3[-1]}","{bounds_Cavg[0]}-{bounds_Cavg[-1]}" \n')
     log.write('================ \n')
 print(f'Finished log saved to: {dir_log}')
 
@@ -159,10 +155,12 @@ tic = time.time()
 df_SILO_data_in = pd.read_csv(infile_SILO)
 df_SILO_data_in['Date'] = df_SILO_data_in['Date'].apply(pd.to_datetime) #convert Date column to datetime format(https://stackoverflow.com/questions/13654699/reindexing-pandas-timeseries-from-object-dtype-to-datetime-dtype)
 df_SILO_data_in = df_SILO_data_in.set_index('Date') # sets the date column as the index
+df_SILO_data_in['dS'] = df_SILO_data_in['P[mm]'] - df_SILO_data_in['E[mm?]']
 toc = time.time() - tic
 print(f'Loaded SILO data from: {infile_SILO}')
 
-#%%
+#%% Loading df_Gauge_data
+tic = time.time()
 df_Gauge_data_in = pd.read_csv(infile_gauge)
     # 3 rows of header to skip
     # 'Time', '143009A.10' (discharge total ML/day)
@@ -178,61 +176,81 @@ df_Gauge_data = df_Gauge_data.rename(columns = {np.nan: "Quality"}) # update the
 df_Gauge_data['Volume ML'] = df_Gauge_data['Volume ML'].astype(float)
 df_Gauge_data['Volume m^3'] = df_Gauge_data['Volume ML'].apply(lambda x: x*1000) # Volume ML to Volume M^3 # https://towardsdatascience.com/apply-and-lambda-usage-in-pandas-b13a1ea037f7
 del col_keep
+toc = time.time() - tic
 print(f'Loaded Gauge data from: {infile_gauge}')
 
 
-
+tic = time.time()
 df_SILO_data_cal = df_SILO_data_in[date_start_cal:date_end_cal]
 df_Gauge_data_cal = df_Gauge_data[date_start_cal:date_end_cal]
-
-
+toc = time.time() - tic
 print(f'Input data cropped to calibration period {date_start_cal}:{date_end_cal}')
 
 # remove the input datasets from memory
-del df_SILO_data_in
-del df_Gauge_data_in, df_Gauge_data
-
-
-#daskDF.read_csv() (use if running out of mem)
-# import dask.dataframe as daskDF # https://docs.dask.org/en/stable/dataframe.html
-# tic = time.time()
-# df_SILO_data_in = daskDF.read_csv(infile_SILO)
-# toc_dask = time.time() - tic
+# del df_SILO_data_in
+# del df_Gauge_data_in, df_Gauge_data
 # =============================================================================
-#%% Simulation Loop, Save Data
+#%% Simulation Loop
 # =============================================================================
+print(' ')
+print(' Applying the AWBM ...')
+
+# Initialise variables
+dS = df_SILO_data_cal['dS']
+days = np.shape(df_SILO_data_cal)[0] # number of days in cal period
 
 
-# # Initialise and clear variables from previous simulations
-# dims = np.shape(Date)
-# dS = []
-# S1 = []; S2 = []; S3 = []
-# S1_Excess =[]; S2_Excess =[]; S3_Excess =[]
-# Total_Excess = []
-# BaseFlowRecharge = []
-# SurfaceFlowRecharge = []
-# BS = []
-# SS = []
-# Qbase = []
-# Qsurf = []
-# Qtotal = []
-# Q = []
+# Set up results DF
+df_run_headers = ['Date'
+                  , 'Day'
+                  , 'dS'
+                  ,'S1','S2','S3'
+                  ,'S1_E', 'S2_E', 'S3_E', 'Total_Excess'
+                  , 'BFR', 'SFR' #Base Flow Recharge, Surface Flow Recharge
+                  , 'BS', 'SS' #Baseflow Store, Surface runoff routing Store
+                  , 'Qbase', 'Qsurf', 'Qtotal', 'Q'
+                  ]
 
-# # Apply the AWBM
-# tic_AWBM = time.time()
-
-# AWBM_function(sim_number,Date,P,E,A,A1,A2,A3,C1,C2,C3,BFI,Kbase,Ksurf,S1_0,S2_0,S3_0,BS_0,SS_0)
-
-# toc_AWBM = tic_AWBM - time.time() # Measures sim duration (seconds)
-
-# print(f'Simulation {sim} of {nSims} complete...')
-
-# # Save simulation data to named file
-#     # TODO: See if globbing from prev scripts may be useful here?
-
-# print(f'Simulation {sim} data saved to file...')
-    
 
     
+# TODO: Remove the \n and set up the log file to be able to write the skill
+#       Scores to the end of each sim so that it's all in the one location.
+with open(dir_log + 'sim_log.csv', 'a') as log: 
+    log.write('[Date],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm] \n')
+    log.write('Start_time,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg \n')
+
+
+for Cavg_i in bounds_Cavg: # loops through different Cavg params
+    # update variables for sim run
+    C1 = Cavg_i * C1_Favg
+    C2 = Cavg_i * C2_Favg
+    C3 = Cavg_i * C3_Favg
     
     
+    with open(dir_log + 'sim_log.csv', 'a') as log: 
+        log.write(f'{time_scriptstart},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i} \n')
+    
+
+        
+    # reset the data between sims
+    
+    day0_data = [date_start_cal
+               , 0
+               , dS[0] # dS
+               , S1_0, S2_0,S3_0
+               ,float(),float(),float(),float() # Si_E & Total_Excess
+               ,float(),float() # BFR & SFR
+               , BS_0, SS_0
+               , float(),float(),float(),float() # Qbase, Qsurf, Qtotal, Q
+               ]
+    
+    df_r = pd.DataFrame([], columns = df_run_headers) 
+    df_r.loc[0] = day0_data
+    
+    # for day in range(0,days+1): # loops through each day in a simulation
+        
+
+    
+    
+    
+  
