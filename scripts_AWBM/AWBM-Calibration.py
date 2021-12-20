@@ -20,7 +20,8 @@ import pandas as pd
 # import matplotlib.pyplot as plt               
 # import matplotlib.dates as mdates
 # import matplotlib.font_manager as font_manager
-from datetime import date             
+from datetime import date       
+import datetime      
 #import matplotlib.font_manager          
 #import openpyxl
 # import hydroeval as he
@@ -85,12 +86,12 @@ dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/
 
     # Calibration period: Make sure the range selected matches with initial storage assumptions
 
-date_start_cal = date(1985,1,1) 
-date_end_cal = date(1985,1,5) 
+date_start_cal = datetime.datetime(1985,1,1) 
+date_end_cal = datetime.datetime(1985,1,5) 
 
     # Testing period
-date_start_test = date(1985,1,1) 
-date_end_test = date(2020,12,31)
+date_start_test = datetime.datetime(1985,1,1) 
+date_end_test = datetime.datetime(2020,12,31)
 
 ###########
 # Constants: Model params which aren't going to change between simulations
@@ -116,13 +117,14 @@ Ksurf = float(0.35)     # Surface flow recession constant [0-1]
 bounds_C1 = range(0,81)
 bounds_C2 = range(50,401)
 bounds_C3 = range(100,401)
+bounds_Cavg = range(70,130) # for using the single parameter calibration
 
 # A_i scenarios [A_1_i,A_2_i,A_3_i]
 # e.g. Calling A_1_i2 with bounds_A[0][1]
-bounds_A = ([0.134,0.433,0.433]
-            ,[0.134,0.433,0.433]
-            ,[0.134,0.433,0.433]
-            ,[0.134,0.433,0.433]
+bounds_A = ([0.134,0.433,0.433] #i1
+            ,[0.134,0.433,0.433] #i2
+            ,[0.134,0.433,0.433] #i3
+            ,[0.134,0.433,0.433] #i4
             )
 
 
@@ -155,35 +157,47 @@ print('Loading input data...')
 #Pandas.read_csv() (no chunks)
 tic = time.time()
 df_SILO_data_in = pd.read_csv(infile_SILO)
-toc_pd = time.time() - tic
+df_SILO_data_in['Date'] = df_SILO_data_in['Date'].apply(pd.to_datetime) #convert Date column to datetime format(https://stackoverflow.com/questions/13654699/reindexing-pandas-timeseries-from-object-dtype-to-datetime-dtype)
+df_SILO_data_in = df_SILO_data_in.set_index('Date') # sets the date column as the index
+toc = time.time() - tic
+print(f'Loaded SILO data from: {infile_SILO}')
+
+#%%
+df_Gauge_data_in = pd.read_csv(infile_gauge)
+    # 3 rows of header to skip
+    # 'Time', '143009A.10' (discharge total ML/day)
+    
+col_keep = ['Time','143009A.10','Unnamed: 20'] 
+df_Gauge_data = df_Gauge_data_in[col_keep]
+
+df_Gauge_data.columns = df_Gauge_data.iloc[1] # Renames the df headers
+df_Gauge_data = df_Gauge_data.iloc[3:-3] # removes first and last 3 rows (header info etc)
+df_Gauge_data['Date'] = pd.to_datetime(df_Gauge_data['Date'], dayfirst=True)    
+df_Gauge_data = df_Gauge_data.set_index('Date') # sets the date column as the index
+df_Gauge_data = df_Gauge_data.rename(columns = {np.nan: "Quality"}) # update the label for the quality column
+df_Gauge_data['Volume ML'] = df_Gauge_data['Volume ML'].astype(float)
+df_Gauge_data['Volume m^3'] = df_Gauge_data['Volume ML'].apply(lambda x: x*1000) # Volume ML to Volume M^3 # https://towardsdatascience.com/apply-and-lambda-usage-in-pandas-b13a1ea037f7
+del col_keep
+print(f'Loaded Gauge data from: {infile_gauge}')
+
+
+
+df_SILO_data_cal = df_SILO_data_in[date_start_cal:date_end_cal]
+df_Gauge_data_cal = df_Gauge_data[date_start_cal:date_end_cal]
+
+
+print(f'Input data cropped to calibration period {date_start_cal}:{date_end_cal}')
+
+# remove the input datasets from memory
+del df_SILO_data_in
+del df_Gauge_data_in, df_Gauge_data
+
 
 #daskDF.read_csv() (use if running out of mem)
 # import dask.dataframe as daskDF # https://docs.dask.org/en/stable/dataframe.html
 # tic = time.time()
 # df_SILO_data_in = daskDF.read_csv(infile_SILO)
 # toc_dask = time.time() - tic
-
-
-# TODO: find the best way to index and crop df_SILO_data_in based on some 
-# kind of user input that doesn't rely on row numbers
- 
-row_start_cal = []
-row_end_cal = []
-
-
-df_SILO_data_cal = df_SILO_data_in[row_start_cal:row_end_cal]
-del df_SILO_data_in # might not need to delete if I use it again to pull data for testing period
-
-print(f'Input data cropped to calibration period {date_start_cal}:{date_end_cal}')
-
-
-print(f'Loaded SILO data from: {infile_SILO}')
-
-print(f'Loaded Gauge data from: {infile_gauge}')
-
-
-
-
 # =============================================================================
 #%% Simulation Loop, Save Data
 # =============================================================================
