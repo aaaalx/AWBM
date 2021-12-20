@@ -1,131 +1,136 @@
+# =============================================================================
+# Setup and Notes 
+# =============================================================================
 
-## All these parms will be in the larger script and input into the function
-    # A = float(3869.6461797327);          # Catchment area [km^2]
-    #     #3869.6461797327 km^2 from gregor's creek catchment crop
-    #     #7020 km^2 from: https://www.seqwater.com.au/dams/wivenhoe
-    #     #5360 km^2 from: https://www.researchgate.net/publication/242172986_Maximising_Water_Storage_in_South_East_Queensland_Reservoirs_Evaluating_the_Impact_of_Runoff_Interception_by_Farm_Dams
-    #         #5360 +1490+333 aprox the 7020
-    #             # 1340 and not 1490? https://www.seqwater.com.au/dams/somerset
-    # A1 = float(0.134)       # Storage fraction [0-1]
-    # A2 = float(0.433)       # Storage fraction [0-1]
-    # A3 = float(0.433)       # Storage fraction [0-1]
-    #     #13.4/43.3/43.3 = Default (Barret et al., 2008)
-    # Acheck = A1 + A2 + A3   # Check to ensure A1+A2+A3 = 1
-    # C1 = float(7)           # Storage capacity [mm]
-    # C2 = float(70)         # Storage capacity [mm]
-    # C3 = float(150)         # Storage capacity [mm]
-    # BFI = float(0.35)       # Base flow index [0-1]
-    #     #QLD average =0.17 (Boughton, 2009)
-    # Kbase = float(0.95)     # Baseflow recession constant [0-1]
-    #     #QLD average =0.95 (Boughton, 2009)
-    # Ksurf = float(0.35)     # Surface flow recession constant [0-1]
-    #     #13.4/43.3/43.3 = Default (Barret et al., 2008)
-    # # Setting initial storage capacities
-    # S1_0 = float(0)         # Initial storage capacity storage 1 [mm]
-    # S2_0 = float(0)         # Initial storage capacity storage 2 [mm]
-    # S3_0 = float(0)         # Initial storage capacity storage 3 [mm]wivenhoe 
-    # BS_0 = float(0)         # Initial storage capacity baseflow store [mm]
-    # SS_0 = float(0)         # Initial storage capacity surface flow store [mm]
-    
 import numpy as np  
-# import datetime 
-# import matplotlib.dates as mdates
-sim = np.array([1,2,3,4,5])
-sim.astype(np.float64)
+import datetime 
 
-def AWBM_function(sim_number,Date,P,E,A,A1,A2,A3,C1,C2,C3,BFI,Kbase,Ksurf,S1_0,S2_0,S3_0,BS_0,SS_0):
+import time
 
-#TODO: update to variable[sim] format
+
+
+# # Input data headers (for ref only)
+# df_run_headers_f = ['Date'
+#                   , 'Day'
+#                   , 'dS'
+#                   ,'S1','S2','S3'
+#                   ,'S1_E', 'S2_E', 'S3_E', 'Total_Excess'
+#                   , 'BFR', 'SFR' #Base Flow Recharge, Surface Flow Recharge
+#                   , 'BS', 'SS' #Baseflow Store, Surface runoff routing Store
+#                   , 'Qbase', 'Qsurf', 'Qtotal', 'Q'
+#                   ]
+
+
+# # other variables:
+# C1 = Cavg_i * C1_Favg
+# C2 = Cavg_i * C2_Favg
+# C3 = Cavg_i * C3_Favg
+# A1 = bounds_A[0]
+# A2 = bounds_A[1]
+# A3 = bounds_A[2]
+# A = 3868.966716 # Catchment area in km^2
+# S1_0 = float(0.1)         # Initial storage capacity storage 1 [mm]
+# S2_0 = float(0.1)         # Initial storage capacity storage 2 [mm]
+# S3_0 = float(0.1)         # Initial storage capacity storage 3 [mm] 
+# BS_0 = float(0)         # Initial storage capacity baseflow store [mm]
+# SS_0 = float(0)         # Initial storage capacity surface flow store [mm]
+# BFI = float(0.35)       # Base flow index [0-1]
+# Kbase = float(0.95)     # Baseflow recession constant [0-1]
+# Ksurf = float(0.35)     # Surface flow recession constant [0-1]
+    
+# Progress bar: https://github.com/rsalmei/alive-progress/blob/main/README.md
+
+# =============================================================================
+# The function
+# =============================================================================
+# To be used inside of a loop for each timestep
+# *_t refers to a temp variable for the calc
+
+def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A):
+    
+    if i_day == 0: # set up condition for first timestep
+        print(f'Setting up first timestep... {C1},{C2},{C3}')
         
-    for sim in range(0, sim_number):
-        # ===== 3.0 APPLYING MODEL ====================================================
-        print(' ')
-        print(' Applying the AWBM ...')
         
-        Acheck = A1 + A2 + A3
-        if Acheck != 1:
-            print("Acheck failed, does not sum to 1")
-          
+        # Calculating storage levels and overflows 
+        S1_t = max(df['S1'][i_day]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
+        df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
+        df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
         
-        # Initialising variables for model run
-        dims = np.shape(Date)
-        dS = []
-        S1 = []; S2 = []; S3 = []
-        S1_Excess =[]; S2_Excess =[]; S3_Excess =[]
-        Total_Excess = []
-        BaseFlowRecharge = []
-        SurfaceFlowRecharge = []
-        BS = []
-        SS = []
-        Qbase = []
-        Qsurf = []
-        Qtotal = []
-        Q = []
+        S2_t = max(df['S2'][i_day]+df['dS'][i_day],0)
+        df['S2_E'][i_day] = max(S2_t - C1,0)
+        df['S2'][i_day] = min(S2_t,C1)      
         
-        dS  = P[0]-E[0]
-         
-        S1_temp = max(S1_0[sim]+dS,0)
-        S1_Excess = max(S1_temp-C1[sim],0)
-        S1.append(min(S1_temp,C1[sim]))
+        S3_t = max(df['S3'][i_day]+df['dS'][i_day],0)
+        df['S3_E'][i_day] = max(S3_t - C1,0)
+        df['S3'][i_day] = min(S3_t,C1)       
         
-        S2_temp = max(S2_0[sim]+dS,0)
-        S2_Excess = max(S2_temp-C2[sim],0)
-        S2.append(min(S2_temp,C2[sim]))
+        df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+            A1*df['S1_E'][i_day] +
+            A2*df['S2_E'][i_day] +
+            A3*df['S3_E'][i_day] )      
         
-        S3_temp = max(S3_0[sim]+dS,0)
-        S3_Excess = max(S3_temp-C3[sim],0)
-        S3.append(min(S3_temp,C3[sim]))
+        df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+        df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
         
-        Total_Excess.append((S1_Excess*A1[sim])+(S2_Excess*A2[sim])+(S3_Excess*A3[sim]))
+        BS_t = df['BFR'][i_day] + BS_0 # calc new Baseflow storage level
+        df['Qbase'][i_day] = (1-Kbase)*BS_t
+        df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
         
-        BaseFlowRecharge = Total_Excess[0] * BFI[sim]
-        SurfaceFlowRecharge = Total_Excess[0] * (1-BFI[sim])
+        SS_t = df['SFR'][i_day] + SS_0 # calc new surface storage level
+        df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+        df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
         
-        #BS_temp = (BaseFlowRecharge/2)+BS_0
-        BS_temp = BaseFlowRecharge + BS_0
-        Qbase.append((1-Kbase[sim])*BS_temp)
-        BS.append(max((BS_0 + BaseFlowRecharge - Qbase[0]),0))
+        df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+        # calc total outflow in m^3 per timestep (i.e. day)
+        df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+            # 1e6 to convert catchment size from km^2 to m^2
+            # 1e-3 to convert Qtotal from mm to m            
         
-        #SS_temp = (SurfaceFlowRecharge/2)+SS_0[sim]
-        SS_temp = SurfaceFlowRecharge + SS_0[sim]
-        Qsurf.append((1-Ksurf)*SS_temp)
-        SS.append(max((SS_0 + SurfaceFlowRecharge - Qsurf[0]),0))
+        print(f"...Done day0 Q = {df['Q'][i_day]} [m^3]")
+    else: # for all subsequent timesteps
         
-        Qtotal.append(Qbase[0] + Qsurf[0])
-        Q.append(((Qtotal[0]/1000)*(A*1000*1000))/24/60/60)
+        df['dS'][i_day] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
         
-        for i in range(1,dims[0]):
-            dS = P[i]-E[i] 
+        # Calculating storage levels and overflows 
+        S1_t = max(df['S1'][i_day-1]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
+        df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
+        df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
+        
+        S2_t = max(df['S2'][i_day-1]+df['dS'][i_day],0)
+        df['S2_E'][i_day] = max(S2_t - C1,0)
+        df['S2'][i_day] = min(S2_t,C1)      
+        
+        S3_t = max(df['S3'][i_day-1]+df['dS'][i_day],0)
+        df['S3_E'][i_day] = max(S3_t - C1,0)
+        df['S3'][i_day] = min(S3_t,C1)       
+        
+        df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+            A1*df['S1_E'][i_day] +
+            A2*df['S2_E'][i_day] +
+            A3*df['S3_E'][i_day] )      
+        
+        df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+        df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+        
+        BS_t = df['BFR'][i_day] + df['BS'][i_day-1] # calc new Baseflow storage level
+        df['Qbase'][i_day] = (1-Kbase)*BS_t
+        df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
+        
+        SS_t = df['SFR'][i_day] + df['SS'][i_day-1] # calc new surface storage level
+        df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+        df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
+        
+        df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+        # calc total outflow in m^3 per timestep (i.e. day)
+        df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+            # 1e6 to convert catchment size from km^2 to m^2
+            # 1e-3 to convert Qtotal from mm to m   
+        
+        
+
+
             
-            S1_temp = max(S1[i-1]+dS,0)
-            S1_Excess = max(S1_temp-C1,0)
-            S1.append(min(S1_temp,C1))
-            
-            S2_temp = max(S2[i-1]+dS,0)
-            S2_Excess = max(S2_temp-C2,0)
-            S2.append(min(S2_temp,C2))
-            
-            S3_temp = max(S3[i-1]+dS,0)
-            S3_Excess = max(S3_temp-C3,0)
-            S3.append(min(S3_temp,C3))
-            
-            Total_Excess.append((S1_Excess*A1[sim])+(S2_Excess*A2[sim])+(S3_Excess*A3[sim]))
-            
-            BaseFlowRecharge = Total_Excess[i] * BFI[sim]
-            SurfaceFlowRecharge = Total_Excess[i] * (1-BFI)
-            
-        #    BS_temp = (BaseFlowRecharge/2)+BS[i-1]
-            BS_temp = BaseFlowRecharge + BS[i-1]
-            Qbase.append((1-Kbase[sim])*BS_temp)
-            BS.append(max((BS[i-1] + BaseFlowRecharge - Qbase[i]),0))
-            
-        #    SS_temp = (SurfaceFlowRecharge/2)+SS[i-1]
-            SS_temp = SurfaceFlowRecharge + SS[i-1]
-            Qsurf.append((1-Ksurf)*SS_temp)
-            SS.append(max((SS[i-1] + SurfaceFlowRecharge - Qsurf[i]),0))
-            
-            Qtotal.append(Qbase[i] + Qsurf[i])
-            Q.append(((Qtotal[i]/1000)*(A*1000*1000))/24/60/60)
-                #double check the units here?
-                
-        print('  .....AWBM done for sim#' +str(sim))
+    
+    
+

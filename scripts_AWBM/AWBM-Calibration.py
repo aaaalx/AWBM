@@ -20,16 +20,23 @@ import pandas as pd
 # import matplotlib.pyplot as plt               
 # import matplotlib.dates as mdates
 # import matplotlib.font_manager as font_manager
-from datetime import date       
+# from datetime import date       
 import datetime      
 #import matplotlib.font_manager          
 #import openpyxl
-# import hydroeval as he
+import hydroeval as he
     # https://pypi.org/project/hydroeval/
     # Hallouin, T. (XXXX). HydroEval: Streamflow Simulations Evaluator (Version X.X.X). Zenodo. https://doi.org/10.5281/zenodo.2591217
 # from scripts_AWBM import AWBM_function
 import time
-# import csv
+from alive_progress import alive_it
+
+
+from AWBM_function import AWBM_function
+
+
+
+
 
 tic_script = time.time() #starts the run time timer
 # =============================================================================
@@ -121,9 +128,9 @@ A = 3868.966716 # Catchment area in km^2
     #7020 km^2 from: https://www.seqwater.com.au/dams/wivenhoe
     #5360 km^2 from: https://www.researchgate.net/publication/242172986_Maximising_Water_Storage_in_South_East_Queensland_Reservoirs_Evaluating_the_Impact_of_Runoff_Interception_by_Farm_Dams
 
-S1_0 = float(0)         # Initial storage capacity storage 1 [mm]
-S2_0 = float(0)         # Initial storage capacity storage 2 [mm]
-S3_0 = float(0)         # Initial storage capacity storage 3 [mm]wivenhoe 
+S1_0 = float(0.1)         # Initial storage capacity storage 1 [mm]
+S2_0 = float(0.1)         # Initial storage capacity storage 2 [mm]
+S3_0 = float(0.1)         # Initial storage capacity storage 3 [mm] 
 BS_0 = float(0)         # Initial storage capacity baseflow store [mm]
 SS_0 = float(0)         # Initial storage capacity surface flow store [mm]
 
@@ -149,7 +156,7 @@ print(f'Finished log saved to: {dir_log}')
 # =============================================================================
 print('Loading input data...')
 
-#%% Loading df_SILO_data
+# Loading df_SILO_data
 #Pandas.read_csv() (no chunks)
 tic = time.time()
 df_SILO_data_in = pd.read_csv(infile_SILO)
@@ -159,7 +166,7 @@ df_SILO_data_in['dS'] = df_SILO_data_in['P[mm]'] - df_SILO_data_in['E[mm?]']
 toc = time.time() - tic
 print(f'Loaded SILO data from: {infile_SILO}')
 
-#%% Loading df_Gauge_data
+# Loading df_Gauge_data
 tic = time.time()
 df_Gauge_data_in = pd.read_csv(infile_gauge)
     # 3 rows of header to skip
@@ -184,16 +191,16 @@ tic = time.time()
 df_SILO_data_cal = df_SILO_data_in[date_start_cal:date_end_cal]
 df_Gauge_data_cal = df_Gauge_data[date_start_cal:date_end_cal]
 toc = time.time() - tic
-print(f'Input data cropped to calibration period {date_start_cal}:{date_end_cal}')
+print(f'Input data cropped to calibration period {str(date_start_cal)[:-9]}:{str(date_end_cal)[:-9]}')
 
 # remove the input datasets from memory
 # del df_SILO_data_in
 # del df_Gauge_data_in, df_Gauge_data
 # =============================================================================
-#%% Simulation Loop
+#%% Running AWBM + Skill Scores + Saving  
 # =============================================================================
 print(' ')
-print(' Applying the AWBM ...')
+print(' Running the AWBM ...')
 
 # Initialise variables
 dS = df_SILO_data_cal['dS']
@@ -219,21 +226,26 @@ with open(dir_log + 'sim_log.csv', 'a') as log:
     log.write('[Date],[km^2],[mm],[mm],[mm],[mm],[mm],[-],[-],[-],[%],[mm],[mm],[mm],[mm] \n')
     log.write('Start_time,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg \n')
 
+total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be simulated
 
-for Cavg_i in bounds_Cavg: # loops through different Cavg params
+
+
+#%% Simulation Loop
+for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
+    
     # update variables for sim run
     C1 = Cavg_i * C1_Favg
     C2 = Cavg_i * C2_Favg
     C3 = Cavg_i * C3_Favg
-    
+    A1 = bounds_A[0]
+    A2 = bounds_A[1]
+    A3 = bounds_A[2]    
+
     
     with open(dir_log + 'sim_log.csv', 'a') as log: 
         log.write(f'{time_scriptstart},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i} \n')
-    
-
-        
-    # reset the data between sims
-    
+            
+    # reset the data between sims & set formatting    
     day0_data = [date_start_cal
                , 0
                , dS[0] # dS
@@ -244,13 +256,29 @@ for Cavg_i in bounds_Cavg: # loops through different Cavg params
                , float(),float(),float(),float() # Qbase, Qsurf, Qtotal, Q
                ]
     
-    df_r = pd.DataFrame([], columns = df_run_headers) 
-    df_r.loc[0] = day0_data
-    
-    # for day in range(0,days+1): # loops through each day in a simulation
-        
-
+    df = pd.DataFrame([], columns = df_run_headers) # creates the df
+    df.loc[0] = day0_data # sets the first day's data
+    df = df.set_index('Day') # allocates 'Day' as the index to be used
     
     
+    for day in range(0,days): # loops through each day in a simulation
+        AWBM_function(day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
+     
+    print('Model run complete')    
+    #%%Calculate skill scores
+    sim_Q = df['Q']
+    obs_Q = df_Gauge_data_cal['Volume m^3']
     
-  
+    correlation_matrix = np.corrcoef(sim_Q,obs_Q)
+    correlation_xy = correlation_matrix[0,1]
+    ss_r2_Q = correlation_xy**2
+    
+    ss_nse_Q = float(he.evaluator(he.nse, sim_Q, obs_Q))
+    ss_rmse_Q = float(he.evaluator(he.rmse, sim_Q, obs_Q))
+    ss_pbias_Q = float(he.evaluator(he.pbias, sim_Q, obs_Q))
+    
+    # save SS to sim_log.csv or memory
+    
+    
+    
+print('fin')
