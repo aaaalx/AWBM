@@ -44,7 +44,8 @@ tic_script = time.time() #starts the run time timer
 # =============================================================================
 print('Loading user inputs...')
 # File directories
-infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
+# infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
+infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
     # Data source: SILO gridded data (.nc files processed with https://github.com/aaaalx/AWBM_data_processing)
     # has 1 header row
     # Date, P[mm], E[mm?] (need to check evap units again)
@@ -53,7 +54,9 @@ infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_dow
 # infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A BRISBANE RIVER AT GREGORS CREEK/143009A.csv' # csv containing observed streamflow data from gauge
     # 1/1/1985 is on (excel) row 8369, day 8369-4
     # 1/1/2021 is on (excel) row 21518, day 21518-4
-infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+# infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+
     # Data source: https://water-monitoring.information.qld.gov.au/
         # Custom Outputs: all selected
         # Custom period: "00:00_01/01/1985" to "00:00_15/12/2021" at daily timesteps
@@ -85,16 +88,20 @@ infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/14
     # 1/1/2021 is on (excel) row 21518, day 21518-4
 
 # Folder dirs, must end with "/"
-dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
-dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
-dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+# dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+# dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+# dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+
+dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
 # Dates (try to match (or convert to?) the date formats from .nc files)
 
     # Calibration period: Make sure the range selected matches with initial storage assumptions
 
 date_start_cal = datetime.datetime(1985,1,1) 
-date_end_cal = datetime.datetime(1985,1,5) 
+date_end_cal = datetime.datetime(1985,3,1) 
 
     # Testing period
 date_start_test = datetime.datetime(1985,1,1) 
@@ -107,7 +114,7 @@ date_end_test = datetime.datetime(2020,12,31)
 bounds_C1 = range(0,51) # 7 -> 50
 bounds_C2 = range(70,201) # 70 -> 200
 bounds_C3 = range(150,501) # 150 -> 500
-bounds_Cavg = range(70,131) 
+bounds_Cavg = range(70,75) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
 C2_Favg = float(0.762)
@@ -285,75 +292,74 @@ for Cavg_i in bounds_Cavg:
             df.loc[i_day,'S3_E'] = max(S3_t - C1,0) 
             df.loc[i_day, 'S3'] = min(S3_t,C1) 
             
-            df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+            df.loc[i_day,'Total_Excess'] =( # Calculates sum of A_i*S_i_E 
                 A1*df.loc[i_day,'S1_E'] +
                 A2*df.loc[i_day,'S2_E'] +
                 A3*df.loc[i_day,'S3_E'] )
             
-            ###### WIP: replaced indexing notation up to here so far
-            ###### TODO: replace the rest, test, then move back to the function file
+            df.loc[i_day,'BFR'] = df.loc[i_day,'Total_Excess'] * BFI # calc base flow recharge
+            df.loc[i_day,'SFR'] = df.loc[i_day,'Total_Excess'] * (1-BFI)# calc surface flow recharge
+  
+            BS_t = df.loc[i_day,'BFR'] + BS_0 # calc new Baseflow storage level
+            df.loc[i_day,'Qbase'] = (1-Kbase)*BS_t
+            df.loc[i_day,'BS'] = max(BS_t - df.loc[i_day,'Qbase'],0) # calc baseflow
             
-            df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
-            df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
-            
-            BS_t = df['BFR'][i_day] + BS_0 # calc new Baseflow storage level
-            df['Qbase'][i_day] = (1-Kbase)*BS_t
-            df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
-            
-            SS_t = df['SFR'][i_day] + SS_0 # calc new surface storage level
-            df['Qsurf'][i_day] = (1-Ksurf)*SS_t
-            df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
-            
-            df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+            SS_t = df.loc[i_day,'SFR'] + SS_0 # calc new Baseflow storage level
+            df.loc[i_day,'Qsurf'] = (1-Kbase)*BS_t
+            df.loc[i_day,'SS'] = max(SS_t - df.loc[i_day,'Qsurf'],0) # calc baseflow   
+       
+            df.loc[i_day,'Qtotal'] = df.loc[i_day,'Qsurf'] + df.loc[i_day,'Qsurf'] # calc total outflow in [mm]/[catchment size]
             # calc total outflow in m^3 per timestep (i.e. day)
-            df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+            df.loc[i_day,'Q'] = (df.loc[i_day,'Qtotal']*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
                 # 1e6 to convert catchment size from km^2 to m^2
-                # 1e-3 to convert Qtotal from mm to m            
+                # 1e-3 to convert Qtotal from mm to m             
             
-            print(f"...Done day0 Q = {df['Q'][i_day]} [m^3]")
+            print(f"...Done day0 Q = {df.loc[i_day,'Q']} [m^3]")
+            
+            
+            
         else: # for all subsequent timesteps
-            # first, write the day into df
-                       
-            df['dS'][i_day] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
-            # dS_t = df_SILO_data_cal['dS'][i_day]
-            # df = df.append({'dS': dS_t}, ignore_index=True) # hoping I only have to use "append" for the first entry on new row
-            
+            # first, update the day column in df                             
+            df.loc[i_day,'dS'] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
+                        
             
             # Calculating storage levels and overflows 
-            S1_t = max(df['S1'][i_day-1]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
-            df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
-            df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
+            S1_t = max(df.loc[i_day-1,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
+            df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
+            df.loc[i_day, 'S1'] = min(S1_t,C1) # writes the new storage to df
             
-            S2_t = max(df['S2'][i_day-1]+df['dS'][i_day],0)
-            df['S2_E'][i_day] = max(S2_t - C1,0)
-            df['S2'][i_day] = min(S2_t,C1)      
+            S2_t = max(df.loc[i_day-1,'S2']+df.loc[i_day,'dS'],0) 
+            df.loc[i_day,'S2_E'] = max(S2_t - C1,0) 
+            df.loc[i_day, 'S2'] = min(S2_t,C1) 
             
-            S3_t = max(df['S3'][i_day-1]+df['dS'][i_day],0)
-            df['S3_E'][i_day] = max(S3_t - C1,0)
-            df['S3'][i_day] = min(S3_t,C1)       
+            S3_t = max(df.loc[i_day-1,'S3']+df.loc[i_day,'dS'],0) 
+            df.loc[i_day,'S3_E'] = max(S3_t - C1,0) 
+            df.loc[i_day, 'S3'] = min(S3_t,C1) 
             
-            df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
-                A1*df['S1_E'][i_day] +
-                A2*df['S2_E'][i_day] +
-                A3*df['S3_E'][i_day] )      
+            df.loc[i_day,'Total_Excess'] =( # Calculates sum of A_i*S_i_E 
+                A1*df.loc[i_day,'S1_E'] +
+                A2*df.loc[i_day,'S2_E'] +
+                A3*df.loc[i_day,'S3_E'] )
             
-            df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
-            df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+            df.loc[i_day,'BFR'] = df.loc[i_day,'Total_Excess'] * BFI # calc base flow recharge
+            df.loc[i_day,'SFR'] = df.loc[i_day,'Total_Excess'] * (1-BFI)# calc surface flow recharge
+  
+            BS_t = df.loc[i_day,'BFR'] + df.loc[i_day-1,'BS'] # calc new Baseflow storage level
+            df.loc[i_day,'Qbase'] = (1-Kbase)*BS_t
+            df.loc[i_day,'BS'] = max(BS_t - df.loc[i_day,'Qbase'],0) # calc baseflow
             
-            BS_t = df['BFR'][i_day] + df['BS'][i_day-1] # calc new Baseflow storage level
-            df['Qbase'][i_day] = (1-Kbase)*BS_t
-            df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
-            
-            SS_t = df['SFR'][i_day] + df['SS'][i_day-1] # calc new surface storage level
-            df['Qsurf'][i_day] = (1-Ksurf)*SS_t
-            df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
-            
-            df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+            SS_t = df.loc[i_day,'SFR'] + df.loc[i_day-1,'SS'] # calc new Baseflow storage level
+            df.loc[i_day,'Qsurf'] = (1-Kbase)*BS_t
+            df.loc[i_day,'SS'] = max(SS_t - df.loc[i_day,'Qsurf'],0) # calc baseflow   
+       
+            df.loc[i_day,'Qtotal'] = df.loc[i_day,'Qsurf'] + df.loc[i_day,'Qsurf'] # calc total outflow in [mm]/[catchment size]
             # calc total outflow in m^3 per timestep (i.e. day)
-            df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+            df.loc[i_day,'Q'] = (df.loc[i_day,'Qtotal']*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
                 # 1e6 to convert catchment size from km^2 to m^2
-                # 1e-3 to convert Qtotal from mm to m   
-     
+                # 1e-3 to convert Qtotal from mm to m  
+                
+    ###### TODO:  test, then move back to the function file          
+
     print('Model run complete')    
     #%%Calculate skill scores
     sim_Q = df['Q']
