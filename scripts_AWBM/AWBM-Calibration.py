@@ -32,7 +32,7 @@ import time
 from alive_progress import alive_it
 
 
-from AWBM_function import AWBM_function
+# from AWBM_function import AWBM_function
 
 
 
@@ -128,9 +128,9 @@ A = 3868.966716 # Catchment area in km^2
     #7020 km^2 from: https://www.seqwater.com.au/dams/wivenhoe
     #5360 km^2 from: https://www.researchgate.net/publication/242172986_Maximising_Water_Storage_in_South_East_Queensland_Reservoirs_Evaluating_the_Impact_of_Runoff_Interception_by_Farm_Dams
 
-S1_0 = float(0.1)         # Initial storage capacity storage 1 [mm]
-S2_0 = float(0.1)         # Initial storage capacity storage 2 [mm]
-S3_0 = float(0.1)         # Initial storage capacity storage 3 [mm] 
+S1_0 = float(0)         # Initial storage capacity storage 1 [mm]
+S2_0 = float(0)         # Initial storage capacity storage 2 [mm]
+S3_0 = float(0)         # Initial storage capacity storage 3 [mm] 
 BS_0 = float(0)         # Initial storage capacity baseflow store [mm]
 SS_0 = float(0)         # Initial storage capacity surface flow store [mm]
 
@@ -204,12 +204,12 @@ print(' Running the AWBM ...')
 
 # Initialise variables
 dS = df_SILO_data_cal['dS']
+dS = dS.reset_index()
 days = np.shape(df_SILO_data_cal)[0] # number of days in cal period
 
 
 # Set up results DF
 df_run_headers = ['Date'
-                  , 'Day'
                   , 'dS'
                   ,'S1','S2','S3'
                   ,'S1_E', 'S2_E', 'S3_E', 'Total_Excess'
@@ -231,9 +231,10 @@ total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be 
 
 
 #%% Simulation Loop
-for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
-    
+# for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
+for Cavg_i in bounds_Cavg:
     # update variables for sim run
+    # TODO: round C values to x decimal places?
     C1 = Cavg_i * C1_Favg
     C2 = Cavg_i * C2_Favg
     C3 = Cavg_i * C3_Favg
@@ -247,8 +248,7 @@ for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
             
     # reset the data between sims & set formatting    
     day0_data = [date_start_cal
-               , 0
-               , dS[0] # dS
+               , dS['dS'][0] # dS
                , S1_0, S2_0,S3_0
                ,float(),float(),float(),float() # Si_E & Total_Excess
                ,float(),float() # BFR & SFR
@@ -258,11 +258,101 @@ for Cavg_i in alive_it(bounds_Cavg): #alive_it() for total progress bar
     
     df = pd.DataFrame([], columns = df_run_headers) # creates the df
     df.loc[0] = day0_data # sets the first day's data
-    df = df.set_index('Day') # allocates 'Day' as the index to be used
+    # gives df the full dS from the SILO data
+    df = df.append(dS[1:])
+    df = df.reset_index()
+    df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting
     
     
-    for day in range(0,days): # loops through each day in a simulation
-        AWBM_function(day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
+    
+    for i_day in range(0,days): # loops through each day in a simulation
+        if i_day == 0: # set up condition for first timestep
+            print(f'Setting up first timestep... {C1},{C2},{C3}')
+            
+            #df.loc[row,col]
+            # df.loc[i_day, ]
+            
+            # Calculating storage levels and overflows 
+            S1_t = max(df.loc[i_day,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
+            df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
+            df.loc[i_day, 'S1'] = min(S1_t,C1) # writes the new storage to df
+            
+            S2_t = max(df.loc[i_day,'S2']+df.loc[i_day,'dS'],0) 
+            df.loc[i_day,'S2_E'] = max(S2_t - C1,0) 
+            df.loc[i_day, 'S2'] = min(S2_t,C1) 
+            
+            S3_t = max(df.loc[i_day,'S3']+df.loc[i_day,'dS'],0) 
+            df.loc[i_day,'S3_E'] = max(S3_t - C1,0) 
+            df.loc[i_day, 'S3'] = min(S3_t,C1) 
+            
+            df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+                A1*df.loc[i_day,'S1_E'] +
+                A2*df.loc[i_day,'S2_E'] +
+                A3*df.loc[i_day,'S3_E'] )
+            
+            ###### WIP: replaced indexing notation up to here so far
+            ###### TODO: replace the rest, test, then move back to the function file
+            
+            df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+            df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+            
+            BS_t = df['BFR'][i_day] + BS_0 # calc new Baseflow storage level
+            df['Qbase'][i_day] = (1-Kbase)*BS_t
+            df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
+            
+            SS_t = df['SFR'][i_day] + SS_0 # calc new surface storage level
+            df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+            df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
+            
+            df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+            # calc total outflow in m^3 per timestep (i.e. day)
+            df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+                # 1e6 to convert catchment size from km^2 to m^2
+                # 1e-3 to convert Qtotal from mm to m            
+            
+            print(f"...Done day0 Q = {df['Q'][i_day]} [m^3]")
+        else: # for all subsequent timesteps
+            # first, write the day into df
+                       
+            df['dS'][i_day] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
+            # dS_t = df_SILO_data_cal['dS'][i_day]
+            # df = df.append({'dS': dS_t}, ignore_index=True) # hoping I only have to use "append" for the first entry on new row
+            
+            
+            # Calculating storage levels and overflows 
+            S1_t = max(df['S1'][i_day-1]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
+            df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
+            df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
+            
+            S2_t = max(df['S2'][i_day-1]+df['dS'][i_day],0)
+            df['S2_E'][i_day] = max(S2_t - C1,0)
+            df['S2'][i_day] = min(S2_t,C1)      
+            
+            S3_t = max(df['S3'][i_day-1]+df['dS'][i_day],0)
+            df['S3_E'][i_day] = max(S3_t - C1,0)
+            df['S3'][i_day] = min(S3_t,C1)       
+            
+            df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+                A1*df['S1_E'][i_day] +
+                A2*df['S2_E'][i_day] +
+                A3*df['S3_E'][i_day] )      
+            
+            df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+            df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+            
+            BS_t = df['BFR'][i_day] + df['BS'][i_day-1] # calc new Baseflow storage level
+            df['Qbase'][i_day] = (1-Kbase)*BS_t
+            df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
+            
+            SS_t = df['SFR'][i_day] + df['SS'][i_day-1] # calc new surface storage level
+            df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+            df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
+            
+            df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+            # calc total outflow in m^3 per timestep (i.e. day)
+            df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+                # 1e6 to convert catchment size from km^2 to m^2
+                # 1e-3 to convert Qtotal from mm to m   
      
     print('Model run complete')    
     #%%Calculate skill scores

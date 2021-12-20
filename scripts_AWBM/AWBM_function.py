@@ -46,91 +46,89 @@ import time
 # To be used inside of a loop for each timestep
 # *_t refers to a temp variable for the calc
 
-def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A):
+# def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A):
     
-    if i_day == 0: # set up condition for first timestep
-        print(f'Setting up first timestep... {C1},{C2},{C3}')
-        
-        
-        # Calculating storage levels and overflows 
-        S1_t = max(df['S1'][i_day]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
-        df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
-        df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
-        
-        S2_t = max(df['S2'][i_day]+df['dS'][i_day],0)
-        df['S2_E'][i_day] = max(S2_t - C1,0)
-        df['S2'][i_day] = min(S2_t,C1)      
-        
-        S3_t = max(df['S3'][i_day]+df['dS'][i_day],0)
-        df['S3_E'][i_day] = max(S3_t - C1,0)
-        df['S3'][i_day] = min(S3_t,C1)       
-        
-        df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
-            A1*df['S1_E'][i_day] +
-            A2*df['S2_E'][i_day] +
-            A3*df['S3_E'][i_day] )      
-        
-        df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
-        df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
-        
-        BS_t = df['BFR'][i_day] + BS_0 # calc new Baseflow storage level
-        df['Qbase'][i_day] = (1-Kbase)*BS_t
-        df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
-        
-        SS_t = df['SFR'][i_day] + SS_0 # calc new surface storage level
-        df['Qsurf'][i_day] = (1-Ksurf)*SS_t
-        df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
-        
-        df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
-        # calc total outflow in m^3 per timestep (i.e. day)
-        df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
-            # 1e6 to convert catchment size from km^2 to m^2
-            # 1e-3 to convert Qtotal from mm to m            
-        
-        print(f"...Done day0 Q = {df['Q'][i_day]} [m^3]")
-    else: # for all subsequent timesteps
-        
-        df['dS'][i_day] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
-        
-        # Calculating storage levels and overflows 
-        S1_t = max(df['S1'][i_day-1]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
-        df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
-        df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
-        
-        S2_t = max(df['S2'][i_day-1]+df['dS'][i_day],0)
-        df['S2_E'][i_day] = max(S2_t - C1,0)
-        df['S2'][i_day] = min(S2_t,C1)      
-        
-        S3_t = max(df['S3'][i_day-1]+df['dS'][i_day],0)
-        df['S3_E'][i_day] = max(S3_t - C1,0)
-        df['S3'][i_day] = min(S3_t,C1)       
-        
-        df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
-            A1*df['S1_E'][i_day] +
-            A2*df['S2_E'][i_day] +
-            A3*df['S3_E'][i_day] )      
-        
-        df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
-        df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
-        
-        BS_t = df['BFR'][i_day] + df['BS'][i_day-1] # calc new Baseflow storage level
-        df['Qbase'][i_day] = (1-Kbase)*BS_t
-        df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
-        
-        SS_t = df['SFR'][i_day] + df['SS'][i_day-1] # calc new surface storage level
-        df['Qsurf'][i_day] = (1-Ksurf)*SS_t
-        df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
-        
-        df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
-        # calc total outflow in m^3 per timestep (i.e. day)
-        df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
-            # 1e6 to convert catchment size from km^2 to m^2
-            # 1e-3 to convert Qtotal from mm to m   
-        
-        
-
-
-            
+    # NOTE: Code moved to main script for debugging "A value is trying to be set on a copy of a slice from a DataFrame"
     
-    
-
+    # if i_day == 0: # set up condition for first timestep
+    #     print(f'Setting up first timestep... {C1},{C2},{C3}')
+        
+        
+    #     # Calculating storage levels and overflows 
+    #     S1_t = max(df['S1'][i_day]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
+    #     df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
+    #     df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
+        
+    #     S2_t = max(df['S2'][i_day]+df['dS'][i_day],0)
+    #     df['S2_E'][i_day] = max(S2_t - C1,0)
+    #     df['S2'][i_day] = min(S2_t,C1)      
+        
+    #     S3_t = max(df['S3'][i_day]+df['dS'][i_day],0)
+    #     df['S3_E'][i_day] = max(S3_t - C1,0)
+    #     df['S3'][i_day] = min(S3_t,C1)       
+        
+    #     df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+    #         A1*df['S1_E'][i_day] +
+    #         A2*df['S2_E'][i_day] +
+    #         A3*df['S3_E'][i_day] )      
+        
+    #     df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+    #     df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+        
+    #     BS_t = df['BFR'][i_day] + BS_0 # calc new Baseflow storage level
+    #     df['Qbase'][i_day] = (1-Kbase)*BS_t
+    #     df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
+        
+    #     SS_t = df['SFR'][i_day] + SS_0 # calc new surface storage level
+    #     df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+    #     df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
+        
+    #     df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+    #     # calc total outflow in m^3 per timestep (i.e. day)
+    #     df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+    #         # 1e6 to convert catchment size from km^2 to m^2
+    #         # 1e-3 to convert Qtotal from mm to m            
+        
+    #     print(f"...Done day0 Q = {df['Q'][i_day]} [m^3]")
+    # else: # for all subsequent timesteps
+        
+    #     df['dS'][i_day] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
+    #     dS_t = df_SILO_data_cal['dS'][i_day]
+    #     df = df.append({'dS': dS_t}, ignore_index=True) # hoping I only have to use "append" for the first entry on new row
+        
+        
+    #     # Calculating storage levels and overflows 
+    #     S1_t = max(df['S1'][i_day-1]+df['dS'][i_day],0) # calculates Soil store + (P-E) > 0 
+    #     df['S1_E'][i_day] = max(S1_t - C1,0) # calculates the excess
+    #     df['S1'][i_day] = min(S1_t,C1) # writes the new storage to df
+        
+    #     S2_t = max(df['S2'][i_day-1]+df['dS'][i_day],0)
+    #     df['S2_E'][i_day] = max(S2_t - C1,0)
+    #     df['S2'][i_day] = min(S2_t,C1)      
+        
+    #     S3_t = max(df['S3'][i_day-1]+df['dS'][i_day],0)
+    #     df['S3_E'][i_day] = max(S3_t - C1,0)
+    #     df['S3'][i_day] = min(S3_t,C1)       
+        
+    #     df['Total_Excess'][i_day] = ( # Calculates sum of A_i*S_i_E 
+    #         A1*df['S1_E'][i_day] +
+    #         A2*df['S2_E'][i_day] +
+    #         A3*df['S3_E'][i_day] )      
+        
+    #     df['BFR'][i_day] = df['Total_Excess'][i_day] * BFI # calc base flow recharge
+    #     df['SFR'][i_day] = df['Total_Excess'][i_day] * (1-BFI) # calc surface flow recharge
+        
+    #     BS_t = df['BFR'][i_day] + df['BS'][i_day-1] # calc new Baseflow storage level
+    #     df['Qbase'][i_day] = (1-Kbase)*BS_t
+    #     df['BS'][i_day] = max(BS_t - df['Qbase'][i_day],0) # calc baseflow
+        
+    #     SS_t = df['SFR'][i_day] + df['SS'][i_day-1] # calc new surface storage level
+    #     df['Qsurf'][i_day] = (1-Ksurf)*SS_t
+    #     df['SS'][i_day] = max(SS_t - df['Qsurf'][i_day],0) # calc surf flow
+        
+    #     df['Qtotal'][i_day] = df['Qsurf'][i_day] + df['Qbase'][i_day] # calc total outflow in [mm]/[catchment size]
+    #     # calc total outflow in m^3 per timestep (i.e. day)
+    #     df['Q'][i_day] = (df['Qtotal'][i_day]*1e-3) * (A*1e6) # calc total m^3 outflow for the timestep
+    #         # 1e6 to convert catchment size from km^2 to m^2
+    #         # 1e-3 to convert Qtotal from mm to m   
+        
