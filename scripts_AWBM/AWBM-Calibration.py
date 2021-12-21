@@ -92,7 +92,7 @@ dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/
 # dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 # dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_datetimeTest-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_datetimeTest3-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -182,9 +182,11 @@ print('Loading input data...')
 #Pandas.read_csv() (no chunks)
 tic = time.time()
 df_SILO_data_in = pd.read_csv(infile_SILO)
-df_SILO_data_in['Date'] = df_SILO_data_in['Date'].apply(pd.to_datetime) #convert Date column to datetime format(https://stackoverflow.com/questions/13654699/reindexing-pandas-timeseries-from-object-dtype-to-datetime-dtype)
+# df_SILO_data_in['Date'] = df_SILO_data_in['Date'].apply(pd.to_datetime) #convert Date column to datetime format(https://stackoverflow.com/questions/13654699/reindexing-pandas-timeseries-from-object-dtype-to-datetime-dtype)
+df_SILO_data_in['Date'] = pd.to_datetime(df_SILO_data_in['Date'], dayfirst=True) 
 df_SILO_data_in = df_SILO_data_in.set_index('Date') # sets the date column as the index
 df_SILO_data_in['dS'] = df_SILO_data_in['P[mm]'] - df_SILO_data_in['E[mm]']
+
 toc = time.time() - tic
 print(f'Loaded SILO data from: {infile_SILO}')
 
