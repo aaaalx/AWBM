@@ -17,8 +17,10 @@ import os
 import time                                
 import numpy as np                             
 import pandas as pd                           
-import datetime 
+import datetime as dt
+import matplotlib.pyplot as plt
 from AWBM_function import AWBM_function   
+import glob
   
 import hydroeval as he
     # https://pypi.org/project/hydroeval/
@@ -92,7 +94,7 @@ dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/
 # dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 # dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_datetimeTest4-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_plotTest2-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -112,7 +114,7 @@ date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 bounds_C1 = range(0,51) # 7 -> 50
 bounds_C2 = range(70,201) # 70 -> 200
 bounds_C3 = range(150,501) # 150 -> 500
-bounds_Cavg = range(70,150) # 70 -> 130
+bounds_Cavg = range(70,501) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
 C2_Favg = float(0.762)
@@ -299,6 +301,7 @@ for Cavg_i in bounds_Cavg:
     Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
     Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
     
+    #TODO: Something here is running into a "RuntimeWarning: Degrees of freedom <= 0 for slice"
     correlation_matrix = np.corrcoef(Qsum_sim,Qsum_obs)
     correlation_xy = correlation_matrix[0,1]
     ss_r2_Qsum = correlation_xy**2
@@ -311,15 +314,20 @@ for Cavg_i in bounds_Cavg:
     ss_rmse_Q = float(he.evaluator(he.rmse, df['Q'], df['Q_obs']))
     ss_pbias_Q = float(he.evaluator(he.pbias, df['Q'], df['Q_obs']))
     
+    #TODO: check Carl's calibration rating .tif to see if there's any other skill
+    #TODO: scores that would be useful to calculate. Will also help with plotting.
+    
+    
     #%% Write results 
     
-    out_filename = (outfile_prefix + str(sim) +'.csv')
+    out_filename = (outfile_prefix + str(sim))
     
     with open(dir_log + 'sim_log.csv', 'a') as log: 
         log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_sim},{Qsum_obs},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
     
     
-    df.to_csv((dir_results+out_filename), index=False)
+    df.to_csv((dir_results+out_filename+'.csv'), index=False)
+    
     
 
 
@@ -327,12 +335,55 @@ for Cavg_i in bounds_Cavg:
 #%% Post-processing and plotting 
 # =============================================================================
 # input('Press Enter to start plotting')
+# https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.plot.html
+# https://pandas.pydata.org/pandas-docs/stable/user_guide/visualization.html
 
-
-
-# TODO: Timeseries plot of sim_Q and obs_Q only over the calibration date range
-
+# Timeseries plot of sim_Q and obs_Q only over the calibration date range
+    # plot_title = f'(C1,C2,C3) = ({C1}, {C2}, {C3})'
+    plot_title = f'Cavg = {Cavg_i}'
+    df.plot(y=['Q','Q_obs'],title = plot_title)
+    plt.savefig(dir_plots+out_filename+'.png', format='png')
+   
 # TODO: Maybe Add in a combined hyeto/hydro timeseries plot
+
+#%% Animated plots? 
+# Interesting, but not needed: https://towardsdatascience.com/learn-how-to-create-animated-graphs-in-python-fce780421afe
+# folder of pngs to gif: https://www.codegrepper.com/code-examples/python/python+animate+pngs+from+folder
+
+input('Press Enter to start animating')
+
+#PIL gif method https://stackoverflow.com/a/57751793
+from PIL import Image
+plot_filelist = glob.glob(dir_plots + outfile_prefix +'*.png') # defines the expected filepath pattern
+
+# human list sorting: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    import re
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+plot_filelist.sort(key=natural_keys)
+
+fp_out = (dir_plots + 'gif_' + outfile_prefix + '.gif')
+img, *imgs = [Image.open(f) for f in plot_filelist]
+img.save(fp=fp_out, format='GIF', append_images=imgs,
+         save_all=True, duration=20, loop=0)  # Duration is ms per frame
+
+
+del imgs, img # larger parts put in memory
+
+
+
+
+
+
+
 
 print('Script complete')
 
