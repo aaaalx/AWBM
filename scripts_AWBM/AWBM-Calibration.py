@@ -110,11 +110,14 @@ input(f'Run with prefix {outfile_prefix}? [Enter]')
 # TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
 # TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
     
-    # Calibration period: Make sure the range selected matches with initial storage assumptions
+        # Calibration period: Make sure the range selected matches with initial storage assumptions
 # date_start_cal = datetime.datetime(1985,1,1)
 # date_end_cal = datetime.datetime(1985,3,13) 
-date_start_cal = pd.to_datetime('1985-1-1 00:00:00', format='%Y-%m-%d %H:%M:%S')
-date_end_cal = pd.to_datetime('1985-3-13 00:00:00', format='%Y-%m-%d %H:%M:%S')
+# date_start_cal = pd.to_datetime('1985-1-1 00:00:00', format='%Y-%m-%d %H:%M:%S')
+# date_end_cal = pd.to_datetime('1985-3-13 00:00:00', format='%Y-%m-%d %H:%M:%S')
+
+date_start_cal = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
+date_end_cal = pd.to_datetime('1985-3-13', format='%Y-%m-%d')
 
     # Testing period:
     # TODO: Auto check that calibration and testing periods don't overlap?
