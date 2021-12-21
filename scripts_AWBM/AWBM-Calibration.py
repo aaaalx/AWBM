@@ -92,7 +92,7 @@ dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/
 # dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 # dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_datetimeTest3-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_datetimeTest4-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -284,20 +284,18 @@ for Cavg_i in bounds_Cavg:
     
     df = df.reset_index()
     df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
-    df = df.set_index('Date')
+    df = df.set_index('Date') # changes the index to be the Date to make timeseries easier
     
     # Append obs_Q into df at the last col
     # obs_Q = df_Gauge_data_cal.loc[:,'Volume m^3']
-    df = df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
+    df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
     
     
     print('Calculating Skill Scores...')    
             
 
     #%% Calculate skill scores
-    sim_Q = df['Q']
-    obs_Q = df['Q_obs']
-    
+
     Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
     Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
     
@@ -305,13 +303,13 @@ for Cavg_i in bounds_Cavg:
     correlation_xy = correlation_matrix[0,1]
     ss_r2_Qsum = correlation_xy**2
     
-    correlation_matrix = np.corrcoef(sim_Q,obs_Q)
+    correlation_matrix = np.corrcoef(df['Q'],df['Q_obs'])
     correlation_xy = correlation_matrix[0,1]
     ss_r2_Q = correlation_xy**2
     
-    ss_nse_Q = float(he.evaluator(he.nse, sim_Q, obs_Q))
-    ss_rmse_Q = float(he.evaluator(he.rmse, sim_Q, obs_Q))
-    ss_pbias_Q = float(he.evaluator(he.pbias, sim_Q, obs_Q))
+    ss_nse_Q = float(he.evaluator(he.nse, df['Q'], df['Q_obs']))
+    ss_rmse_Q = float(he.evaluator(he.rmse, df['Q'], df['Q_obs']))
+    ss_pbias_Q = float(he.evaluator(he.pbias, df['Q'], df['Q_obs']))
     
     #%% Write results 
     
