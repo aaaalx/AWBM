@@ -97,32 +97,16 @@ input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
 # TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
-# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+
     
         # Calibration period: Make sure the range selected matches with initial storage assumptions
-# date_start_cal = datetime.datetime(1985,1,1)
-# date_end_cal = datetime.datetime(1985,3,13) 
-# date_start_cal = pd.to_datetime('1985-1-1 00:00:00', format='%Y-%m-%d %H:%M:%S')
-# date_end_cal = pd.to_datetime('1985-3-13 00:00:00', format='%Y-%m-%d %H:%M:%S')
-
 date_start_cal = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 date_end_cal = pd.to_datetime('1985-3-13', format='%Y-%m-%d')
 
     # Testing period:
     # TODO: Auto check that calibration and testing periods don't overlap?
-date_start_test = datetime.datetime(1985,1,1) 
-date_end_test = datetime.datetime(2020,12,31)
+date_start_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
+date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 
 # C_i parameter ranges [min,(max+1)] (from ewater AWBM wiki)
 bounds_C1 = range(0,51) # 7 -> 50
@@ -300,15 +284,19 @@ for Cavg_i in bounds_Cavg:
     
     df = df.reset_index()
     df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
-    # TODO: consider making date the index for df again if I find any issues with graphing sim_Q vs obs_Q
-
+    df = df.set_index('Date')
+    
+    # Append obs_Q into df at the last col
+    # obs_Q = df_Gauge_data_cal.loc[:,'Volume m^3']
+    df = df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
+    
     
     print('Calculating Skill Scores...')    
             
 
     #%% Calculate skill scores
     sim_Q = df['Q']
-    obs_Q = df_Gauge_data_cal['Volume m^3']
+    obs_Q = df['Q_obs']
     
     Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
     Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
