@@ -39,8 +39,8 @@ tic_script = time.time() #starts the run time timer
 # =============================================================================
 print('Loading user inputs...')
 # File directories
-# infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
-infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
+infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
+# infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
     # Data source: SILO gridded data (.nc files processed with https://github.com/aaaalx/AWBM_data_processing)
     # has 1 header row
     # Date, P[mm], E[mm] (might need to check evap units again)
@@ -49,8 +49,8 @@ infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Comp
 # infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A BRISBANE RIVER AT GREGORS CREEK/143009A.csv' # csv containing observed streamflow data from gauge
     # 1/1/1985 is on (excel) row 8369, day 8369-4
     # 1/1/2021 is on (excel) row 21518, day 21518-4
-# infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
-infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+# infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
 
     # Data source: https://water-monitoring.information.qld.gov.au/
         # Custom Outputs: all selected
@@ -84,23 +84,37 @@ infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211
 
 
 # Folder dirs, must end with "/"
-# dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
-# dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
-# dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
-dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
-dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+# dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+# dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+# dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_ExportTest2-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_datetimeTest-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
 # TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
+# TODO: Make sure they're always read at Year,Month,Day and never year,day,month (like dayfirst=True, but globally?)
     
     # Calibration period: Make sure the range selected matches with initial storage assumptions
-date_start_cal = datetime.datetime(1985,1,1)
-date_end_cal = datetime.datetime(1985,3,13) 
+# date_start_cal = datetime.datetime(1985,1,1)
+# date_end_cal = datetime.datetime(1985,3,13) 
+date_start_cal = pd.to_datetime('1985-1-1 00:00:00', format='%Y-%m-%d %H:%M:%S')
+date_end_cal = pd.to_datetime('1985-3-13 00:00:00', format='%Y-%m-%d %H:%M:%S')
 
     # Testing period:
     # TODO: Auto check that calibration and testing periods don't overlap?
