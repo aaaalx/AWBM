@@ -18,10 +18,8 @@ import time
 import numpy as np                             
 import pandas as pd                           
 import datetime as dt
-import matplotlib.pyplot as plt
-from AWBM_function import AWBM_function   
-import glob
-  
+import matplotlib.pyplot as plt  
+import glob  
 import hydroeval as he
     # https://pypi.org/project/hydroeval/
     # Hallouin, T. (XXXX). HydroEval: Streamflow Simulations Evaluator (Version X.X.X). Zenodo. https://doi.org/10.5281/zenodo.2591217
@@ -30,7 +28,7 @@ import hydroeval as he
 from alive_progress import alive_it
     # https://github.com/rsalmei/alive-progress/blob/main/README.md
 
-
+from AWBM_function import AWBM_function 
 
 
 tic_script = time.time() #starts the run time timer
@@ -38,6 +36,9 @@ tic_script = time.time() #starts the run time timer
 #%% User Inputs
 # =============================================================================
 print('Loading user inputs...')
+SkipPlot_cal = False # optional skip of calibration plots
+
+
 # File directories
 # infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
 infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
@@ -92,7 +93,7 @@ dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Dir
 dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_calperiodtest1-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_calperiodtest2-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -115,7 +116,7 @@ input(f'Run with prefix {outfile_prefix}? [Enter]')
         
             
 date_start_cal = pd.to_datetime('1993-5-13', format='%Y-%m-%d')
-date_end_cal = pd.to_datetime('1994-5-13', format='%Y-%m-%d')
+date_end_cal = pd.to_datetime('1996-5-13', format='%Y-%m-%d')
 
     # Testing period:
     # TODO: Auto check that calibration and testing periods don't overlap?
@@ -126,7 +127,7 @@ date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 bounds_C1 = range(0,51) # 7 -> 50
 bounds_C2 = range(70,201) # 70 -> 200
 bounds_C3 = range(150,501) # 150 -> 500
-bounds_Cavg = range(70,501) # 70 -> 130
+bounds_Cavg = range(200,501) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
 C2_Favg = float(0.762)
@@ -304,22 +305,21 @@ for Cavg_i in bounds_Cavg:
     df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
     
     
-    print('Calculating Skill Scores...')    
+       
             
 
     #%% Calculate skill scores
-
+    print('Calculating Skill Scores...') 
     Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
     Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
     
-    #TODO: Something here is running into a "RuntimeWarning: Degrees of freedom <= 0 for slice"
-    correlation_matrix = np.corrcoef(Qsum_sim,Qsum_obs)
-    correlation_xy = correlation_matrix[0,1]
-    ss_r2_Qsum = correlation_xy**2
+
+    ss_Qsum_delta = Qsum_sim - Qsum_obs        
     
     correlation_matrix = np.corrcoef(df['Q'],df['Q_obs'])
     correlation_xy = correlation_matrix[0,1]
     ss_r2_Q = correlation_xy**2
+    
     
     ss_nse_Q = float(he.evaluator(he.nse, df['Q'], df['Q_obs']))
     ss_rmse_Q = float(he.evaluator(he.rmse, df['Q'], df['Q_obs']))
@@ -349,45 +349,50 @@ for Cavg_i in bounds_Cavg:
 # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.plot.html
 # https://pandas.pydata.org/pandas-docs/stable/user_guide/visualization.html
 
-# Timeseries plot of sim_Q and obs_Q only over the calibration date range
-    # plot_title = f'(C1,C2,C3) = ({C1}, {C2}, {C3})'
-    plot_title = f'Cavg = {Cavg_i}'
-    df.plot(y=['Q','Q_obs'],title = plot_title)
-    plt.savefig(dir_plots+out_filename+'.png', format='png')
-   
+    if SkipPlot_cal == False:
+        
+    # Timeseries plot of sim_Q and obs_Q only over the calibration date range
+        # plot_title = f'(C1,C2,C3) = ({C1}, {C2}, {C3})'
+        plot_title = f'Cavg = {Cavg_i}'
+        df.plot(y=['Q','Q_obs'],title = plot_title)
+        print('Saving calibration plot...')
+        plt.savefig(dir_plots+out_filename+'.png', format='png',bbox_inches="tight")
+        plt.close() # Remove plot from memory after save to file
+
 # TODO: Maybe Add in a combined hyeto/hydro timeseries plot
 
 #%% Animated plots? 
 # Interesting, but not needed: https://towardsdatascience.com/learn-how-to-create-animated-graphs-in-python-fce780421afe
 # folder of pngs to gif: https://www.codegrepper.com/code-examples/python/python+animate+pngs+from+folder
 
-input('Press Enter to start animating')
 
+if SkipPlot_cal == False:
 #PIL gif method https://stackoverflow.com/a/57751793
-from PIL import Image
-plot_filelist = glob.glob(dir_plots + outfile_prefix +'*.png') # defines the expected filepath pattern
-
-# human list sorting: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
-def atoi(text):
-    return int(text) if text.isdigit() else text
-
-def natural_keys(text):
-    import re
-    '''
-    alist.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    (See Toothy's implementation in the comments)
-    '''
-    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
-plot_filelist.sort(key=natural_keys)
-
-fp_out = (dir_plots + 'gif_' + outfile_prefix + '.gif')
-img, *imgs = [Image.open(f) for f in plot_filelist]
-img.save(fp=fp_out, format='GIF', append_images=imgs,
-         save_all=True, duration=20, loop=0)  # Duration is ms per frame
-
-
-del imgs, img # larger parts put in memory
+    print('Generating calibration gif...')
+    from PIL import Image
+    plot_filelist = glob.glob(dir_plots + outfile_prefix +'*.png') # defines the expected filepath pattern
+    
+    # human list sorting: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+    def atoi(text):
+        return int(text) if text.isdigit() else text
+    
+    def natural_keys(text):
+        import re
+        '''
+        alist.sort(key=natural_keys) sorts in human order
+        http://nedbatchelder.com/blog/200712/human_sorting.html
+        (See Toothy's implementation in the comments)
+        '''
+        return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+    plot_filelist.sort(key=natural_keys)
+    
+    fp_out = (dir_plots + 'gif_' + outfile_prefix + '.gif')
+    img, *imgs = [Image.open(f) for f in plot_filelist]
+    img.save(fp=fp_out, format='GIF', append_images=imgs,
+             save_all=True, duration=20, loop=0)  # Duration is ms per frame
+    
+    
+    del imgs, img # larger parts put in memory
 
 
 

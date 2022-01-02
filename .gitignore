@@ -4,3 +4,4 @@ Outputs*
 scripts_AWBM/examples/*
 Outputs/setup_log.csv
 Outputs/sim_log.csv
+*.pyc
