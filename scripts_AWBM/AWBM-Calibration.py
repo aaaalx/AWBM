@@ -93,7 +93,7 @@ dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Dir
 dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_calperiodtest2-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_Ci_LoopTest1-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -124,9 +124,9 @@ date_start_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 
 # C_i parameter ranges [min,(max+1)] (from ewater AWBM wiki)
-bounds_C1 = range(0,51) # 7 -> 50
-bounds_C2 = range(70,201) # 70 -> 200
-bounds_C3 = range(150,501) # 150 -> 500
+bounds_C1 = range(40,51) # 7 -> 50
+bounds_C2 = range(80,120) # 70 -> 200
+bounds_C3 = range(150,220) # 150 -> 500
 bounds_Cavg = range(200,501) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
@@ -250,7 +250,9 @@ df_run_headers = ['Date'
 
     
 
-total_sims = (len(bounds_Cavg)-1)*(days) # Calculates the total # of days to be simulated for all scenarios
+total_sims = len(bounds_C1)*len(bounds_C2)*len(bounds_C3)
+
+
 #%% Simulation Loop
 sim = int() # sim counter for output filenames
 with open(dir_log + 'sim_log.csv', 'a') as log: # TODO: could change the 'a' to allow overwrites with updating filenames
@@ -258,108 +260,116 @@ with open(dir_log + 'sim_log.csv', 'a') as log: # TODO: could change the 'a' to 
     log.write('filename,A,S1_0,S2_0,S3_0,BS_0,SS_0,BFI,Kbase,Ksurf,A_i,C1,C2,C3,Cavg,Qsum_sim,Qsum_obs,R2,NSE,RMSE,PBIAS \n')
 
 # for Cavg_i in alive_it(bounds_Cavg): #alive_it() for console progress bar
-for Cavg_i in bounds_Cavg:
-    sim = sim + 1
-    # update variables for sim run
-    
-    C1 = round(Cavg_i * C1_Favg,C_decimal)
-    C2 = round(Cavg_i * C2_Favg,C_decimal)
-    C3 = round(Cavg_i * C3_Favg,C_decimal)
-    A1 = bounds_A[0]
-    A2 = bounds_A[1]
-    A3 = bounds_A[2]    
+for C3_i in bounds_C3:
+    for C2_i in bounds_C2:
+        tic_c1 = time.time()
+        for C1_i in bounds_C1:
+            sim = sim + 1
+            # update variables for sim run            
 
-    df_SILO_data_cal['E[mm]']        
-    # reset the data between sims & set formatting    
-    day0_data = [date_start_cal
-                , df_SILO_data_cal.loc[date_start_cal,'P[mm]']   
-                , df_SILO_data_cal.loc[date_start_cal,'E[mm]']
-                # , df_SILO_data_cal.loc[0, 'dS'] # dS from day 0
-               , dS_cal.loc[0, 'dS'] # dS from day 0
-               , S1_0, S2_0,S3_0
-               ,float(),float(),float(),float() # Si_E & Total_Excess
-               ,float(),float() # BFR & SFR
-               , BS_0, SS_0
-               , float(),float(),float(),float() # Qbase, Qsurf, Qtotal, Q
-               ]
-    
-    df = pd.DataFrame([], columns = df_run_headers) # creates the df
-    df.loc[0] = day0_data # sets the first day's data as above
-    
-   
-    df = df.append(dS_cal[1:])
-
-    
-    
-    
-    for i_day in range(0,days): # loops through each day in a simulation
-        time_simstart = time.ctime()
-        AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
-    
-    df = df.reset_index()
-    df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
-    df = df.set_index('Date') # changes the index to be the Date to make timeseries easier
-    
-    # Append obs_Q into df at the last col
-    # obs_Q = df_Gauge_data_cal.loc[:,'Volume m^3']
-    df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
-    
-    
-       
+            Cavg_i = 0 # placeholder for log files
+            C1 = C1_i
+            C2 = C2_i
+            C3 = C3_i        
             
-
-    #%% Calculate skill scores
-    print('Calculating Skill Scores...') 
-    Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
-    Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
-    
-
-    ss_Qsum_delta = Qsum_sim - Qsum_obs        
-    
-    correlation_matrix = np.corrcoef(df['Q'],df['Q_obs'])
-    correlation_xy = correlation_matrix[0,1]
-    ss_r2_Q = correlation_xy**2
-    
-    
-    ss_nse_Q = float(he.evaluator(he.nse, df['Q'], df['Q_obs']))
-    ss_rmse_Q = float(he.evaluator(he.rmse, df['Q'], df['Q_obs']))
-    ss_pbias_Q = float(he.evaluator(he.pbias, df['Q'], df['Q_obs']))
-    
-    #TODO: check Carl's calibration rating .tif to see if there's any other skill
-    #TODO: scores that would be useful to calculate. Will also help with plotting.
-    
-    
-    #%% Write results 
-    
-    out_filename = (outfile_prefix + str(sim))
-    
-    with open(dir_log + 'sim_log.csv', 'a') as log: 
-        log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_sim},{Qsum_obs},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
-    
-    
-    df.to_csv((dir_results+out_filename+'.csv'), index=False)
-    
-    
-
-
-# =============================================================================
-#%% Post-processing and plotting 
-# =============================================================================
-# input('Press Enter to start plotting')
-# https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.plot.html
-# https://pandas.pydata.org/pandas-docs/stable/user_guide/visualization.html
-
-    if SkipPlot_cal == False:
+            A1 = bounds_A[0]
+            A2 = bounds_A[1]
+            A3 = bounds_A[2]    
         
-    # Timeseries plot of sim_Q and obs_Q only over the calibration date range
-        # plot_title = f'(C1,C2,C3) = ({C1}, {C2}, {C3})'
-        plot_title = f'Cavg = {Cavg_i}'
-        df.plot(y=['Q','Q_obs'],title = plot_title)
-        print('Saving calibration plot...')
-        plt.savefig(dir_plots+out_filename+'.png', format='png',bbox_inches="tight")
-        plt.close() # Remove plot from memory after save to file
-
-# TODO: Maybe Add in a combined hyeto/hydro timeseries plot
+            df_SILO_data_cal['E[mm]']        
+            # reset the data between sims & set formatting    
+            day0_data = [date_start_cal
+                        , df_SILO_data_cal.loc[date_start_cal,'P[mm]']   
+                        , df_SILO_data_cal.loc[date_start_cal,'E[mm]']
+                        # , df_SILO_data_cal.loc[0, 'dS'] # dS from day 0
+                       , dS_cal.loc[0, 'dS'] # dS from day 0
+                       , S1_0, S2_0,S3_0
+                       ,float(),float(),float(),float() # Si_E & Total_Excess
+                       ,float(),float() # BFR & SFR
+                       , BS_0, SS_0
+                       , float(),float(),float(),float() # Qbase, Qsurf, Qtotal, Q
+                       ]
+            
+            df = pd.DataFrame([], columns = df_run_headers) # creates the df
+            df.loc[0] = day0_data # sets the first day's data as above
+            
+           
+            df = df.append(dS_cal[1:])
+        
+            
+            
+            print(f'AWBM Running with... {C1},{C2},{C3} ... {sim}/{total_sims}')
+            for i_day in range(0,days): # loops through each day in a simulation
+                # time_simstart = time.ctime()
+                AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
+            
+            df = df.reset_index()
+            df = df.rename(columns= {'index': 'Day'}) # sets the day index with the right formatting    
+            df = df.set_index('Date') # changes the index to be the Date to make timeseries easier
+            
+            # Append obs_Q into df at the last col
+            # obs_Q = df_Gauge_data_cal.loc[:,'Volume m^3']
+            df.insert(loc=len(df.columns),column='Q_obs',value=df_Gauge_data_cal.loc[:,'Volume m^3'])
+            
+            
+               
+                    
+        
+            #%% Calculate skill scores
+            print('Calculating Skill Scores...') 
+            Qsum_sim = df.loc[:,'Q'].sum(axis=0) # calc the total volume over the calibration period
+            Qsum_obs = df_Gauge_data_cal.loc[:,'Volume m^3'].sum(axis=0) # same for observations
+            
+        
+            ss_Qsum_delta = Qsum_sim - Qsum_obs        
+            
+            correlation_matrix = np.corrcoef(df['Q'],df['Q_obs'])
+            correlation_xy = correlation_matrix[0,1]
+            ss_r2_Q = correlation_xy**2
+            
+            
+            ss_nse_Q = float(he.evaluator(he.nse, df['Q'], df['Q_obs']))
+            ss_rmse_Q = float(he.evaluator(he.rmse, df['Q'], df['Q_obs']))
+            ss_pbias_Q = float(he.evaluator(he.pbias, df['Q'], df['Q_obs']))
+            
+            #TODO: check Carl's calibration rating .tif to see if there's any other skill
+            #TODO: scores that would be useful to calculate. Will also help with plotting.
+            
+            
+            #%% Write results 
+            
+            out_filename = (outfile_prefix + str(sim))
+            
+            with open(dir_log + 'sim_log.csv', 'a') as log: 
+                log.write(f'{out_filename},{A},{S1_0},{S2_0},{S3_0},{BS_0},{SS_0},{BFI},{Kbase},{Ksurf},"{bounds_A}",{C1},{C2},{C3},{Cavg_i},{Qsum_sim},{Qsum_obs},{ss_r2_Q},{ss_nse_Q},{ss_rmse_Q},{ss_pbias_Q} \n')
+            
+            
+            df.to_csv((dir_results+out_filename+'.csv'), index=False)
+            
+            
+        
+        
+        # =============================================================================
+        #%% Post-processing and plotting 
+        # =============================================================================
+        # input('Press Enter to start plotting')
+        # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.plot.html
+        # https://pandas.pydata.org/pandas-docs/stable/user_guide/visualization.html
+        
+            if SkipPlot_cal == False:
+                print('Calibration plot...')
+            # Timeseries plot of sim_Q and obs_Q only over the calibration date range
+                # plot_title = f'(C1,C2,C3) = ({C1}, {C2}, {C3})'
+                plot_title = f'C_i = ({C1_i},{C2_i},{C3_i})'
+                df.plot(y=['Q','Q_obs'],title = plot_title)
+                plt.savefig(dir_plots+out_filename+'.png', format='png',bbox_inches="tight")
+                plt.close() # Remove plot from memory after save to file
+                
+        toc_c1 = time.time() - tic_c1
+        aaa_est_s_per_sim = toc_c1/len(bounds_C1)
+        aaa_est_sim_duration = total_sims * aaa_est_s_per_sim
+        aaa_est_sim_duration_hrs = aaa_est_sim_duration/60/60
+# TODO: Maybe Add in a combined hyeto/hydro timeseries plot?
 
 #%% Animated plots? 
 # Interesting, but not needed: https://towardsdatascience.com/learn-how-to-create-animated-graphs-in-python-fce780421afe

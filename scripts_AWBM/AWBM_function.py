@@ -27,8 +27,7 @@ Created on Mon Dec 20 20:10:40 2021
 def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A):
     
     if i_day == 0: # set up condition for first timestep
-        print(f'AWBM Running with... {C1},{C2},{C3}')
-        
+  
        
     # Calculating storage levels and overflows 
         S1_t = max(df.loc[i_day,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
