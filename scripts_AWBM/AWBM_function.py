@@ -35,6 +35,7 @@ def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_
         df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
         df.loc[i_day, 'S1'] = min(S1_t,C1) # writes the new storage to df
         
+        
         S2_t = max(df.loc[i_day,'S2']+df.loc[i_day,'dS'],0) 
         df.loc[i_day,'S2_E'] = max(S2_t - C1,0) 
         df.loc[i_day, 'S2'] = min(S2_t,C1) 
