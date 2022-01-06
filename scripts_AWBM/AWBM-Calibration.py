@@ -93,7 +93,7 @@ dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Dir
 dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
 dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_Ci_LoopTest1-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_Ci_LoopTest3-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -116,17 +116,17 @@ input(f'Run with prefix {outfile_prefix}? [Enter]')
         
             
 date_start_cal = pd.to_datetime('1993-5-13', format='%Y-%m-%d')
-date_end_cal = pd.to_datetime('1996-5-13', format='%Y-%m-%d')
+date_end_cal = pd.to_datetime('1994-5-13', format='%Y-%m-%d')
 
     # Testing period:
     # TODO: Auto check that calibration and testing periods don't overlap?
 date_start_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')    
 date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 
-# C_i parameter ranges [min,(max+1)] (from ewater AWBM wiki)
+# C_i parameter ranges [min,(max+1),stride] (from ewater AWBM wiki)
 bounds_C1 = range(40,51) # 7 -> 50
-bounds_C2 = range(80,120) # 70 -> 200
-bounds_C3 = range(150,220) # 150 -> 500
+bounds_C2 = range(80,120,2) # 70 -> 200, step 2mm
+bounds_C3 = range(150,220,5) # 150 -> 500, step 5mm 
 bounds_Cavg = range(200,501) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
