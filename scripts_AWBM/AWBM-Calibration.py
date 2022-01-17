@@ -40,8 +40,8 @@ SkipPlot_cal = False # optional skip of calibration plots
 
 
 # File directories
-# infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
-infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
+infile_SILO = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv' # Either a single csv, or folder, containing the gridded SILO data
+# infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Compile/SILO_Gregors_1985-2020-pd.csv" 
     # Data source: SILO gridded data (.nc files processed with https://github.com/aaaalx/AWBM_data_processing)
     # has 1 header row
     # Date, P[mm], E[mm] (might need to check evap units again)
@@ -50,8 +50,8 @@ infile_SILO = "D:/OneDrive/Documents/Uni/Honours Thesis/Data/SILO_downloads/Comp
 # infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A BRISBANE RIVER AT GREGORS CREEK/143009A.csv' # csv containing observed streamflow data from gauge
     # 1/1/1985 is on (excel) row 8369, day 8369-4
     # 1/1/2021 is on (excel) row 21518, day 21518-4
-# infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
-infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+infile_gauge = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
+# infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211216/143009A.csv'
 
     # Data source: https://water-monitoring.information.qld.gov.au/
         # Custom Outputs: all selected
@@ -85,15 +85,15 @@ infile_gauge = 'D:/OneDrive/Documents/Uni/Honours Thesis/Data/AWBM/143009A_20211
 
 
 # Folder dirs, must end with "/"
-# dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
-# dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
-# dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+dir_plots = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+dir_log = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+dir_results = 'C:/Users/Alex/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
-dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
-dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
+# dir_plots = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Plots/' # Directory where plots are saved
+# dir_log = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/' # Directory of log file
+# dir_results = 'D:/OneDrive/Documents/Uni/Honours Thesis/AWBM/Outputs/Results/' # Directory to write results to
 
-outfile_prefix = 'results_Ci_LoopTest3-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
+outfile_prefix = 'results_Ci_LoopTest3.5-' # string placed at the front of result output files [outfile_prefix][simnumber].csv
 input(f'Run with prefix {outfile_prefix}? [Enter]')
 
 # Dates (year,month,day)
@@ -125,8 +125,8 @@ date_end_test = pd.to_datetime('1985-1-1', format='%Y-%m-%d')
 
 # C_i parameter ranges [min,(max+1),stride] (from ewater AWBM wiki)
 bounds_C1 = range(40,51) # 7 -> 50
-bounds_C2 = range(80,120,2) # 70 -> 200, step 2mm
-bounds_C3 = range(150,220,5) # 150 -> 500, step 5mm 
+bounds_C2 = range(80,120,10) # 70 -> 200, step 2mm
+bounds_C3 = range(150,220,10) # 150 -> 500, step 5mm 
 bounds_Cavg = range(200,501) # 70 -> 130
 # for using the Average capacity calibration from (B,2004)
 C1_Favg = float(0.075)
@@ -387,12 +387,7 @@ if SkipPlot_cal == False:
         return int(text) if text.isdigit() else text
     
     def natural_keys(text):
-        import re
-        '''
-        alist.sort(key=natural_keys) sorts in human order
-        http://nedbatchelder.com/blog/200712/human_sorting.html
-        (See Toothy's implementation in the comments)
-        '''
+        import re #google python regex for more info on the syntax
         return [ atoi(c) for c in re.split(r'(\d+)', text) ]
     plot_filelist.sort(key=natural_keys)
     
@@ -404,12 +399,19 @@ if SkipPlot_cal == False:
     
     del imgs, img # larger parts put in memory
 
-
-
-
-
-
-
-
 print('Script complete')
 
+#%% plotting test
+def plotHyetoHydro(plot_title,df_in,col_P,col_Q,col_Qobs):
+    # plot a combined Hydro/Hyetograph with both observed and simulated flows
+    # plot is then saved to file then removed from memory
+    
+    
+    df_in.plot(y=[col_Q,col_Qobs],title = plot_title)
+    
+    
+    
+    plt.savefig(dir_plots+out_filename+'_v2.png', format='png',bbox_inches="tight")
+    plt.close() # Remove plot from memory after save to file
+    
+    

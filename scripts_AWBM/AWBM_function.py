@@ -11,11 +11,11 @@ Created on Mon Dec 20 20:10:40 2021
 # import numpy as np  
 # import datetime 
 # import time
-
-
     
 # Progress bar: https://github.com/rsalmei/alive-progress/blob/main/README.md
 # To be used inside of a loop for each timestep
+
+
 # *_t refers to a temp variable for the calculation
 # indexing format: df.loc[row,col]
 
