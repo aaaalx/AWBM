@@ -402,16 +402,43 @@ if SkipPlot_cal == False:
 print('Script complete')
 
 #%% plotting test
+
+import pandas as pd
+import seaborn as sns
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+# load a test result df
+df = pd.read_csv('//fs07.watech.local/redirected folders$/alex.xynias/My Documents/GitHub/AWBM/scripts_AWBM/plottest.csv')
+df['Date'] = pd.to_datetime(df['Date'], dayfirst=True) 
+df = df.set_index('Date') # sets the date column as the index
+
+
+
+# def plotHyetoHydro(plot_title,df_in,col_Date="",col_P="",col_Q="",col_Qobs=""):
 def plotHyetoHydro(plot_title,df_in,col_P,col_Q,col_Qobs):
-    # plot a combined Hydro/Hyetograph with both observed and simulated flows
-    # plot is then saved to file then removed from memory
+    # plots a combined Hydro/Hyetograph with both observed and simulated flows
+    # Assumes: index of df is in "datetime" format
+    # https://matplotlib.org/stable/gallery/color/named_colors.html
+    
+    # fig, ax0 = plt.subplots(figsize=(10, 6))
+    fig, ax0 = plt.subplots()
+    
+    ax0.set_ylim(0,100)
+    ax0.set_yticks([0,10,20,30,40])
+    # ax0.set_yticks([0,10,20,30,40,50,60,70,80])
+    ax0.bar(df_in.index,df_in["dS"],color='grey')
+    ax0.legend(['dS'],loc="upper left")
+    ax0.invert_yaxis() # puts hyeto graph on top and inverts
+    # ax0.spines['bottom'].set_visible(False)
+    # ax0.spines['top'].set_visible(False)
+    
+    ax1 = ax0.twinx()
+    ax1.plot(df_in[col_Q]) # adds simulated Q to plot
+    ax1.plot(df_in[col_Qobs]) # adds obs Q to plot
+    ax1.legend(['Q AWBM','Q Sim'],loc="center left")     
+        
+
     
     
-    df_in.plot(y=[col_Q,col_Qobs],title = plot_title)
-    
-    
-    
-    plt.savefig(dir_plots+out_filename+'_v2.png', format='png',bbox_inches="tight")
-    plt.close() # Remove plot from memory after save to file
-    
-    
+plotHyetoHydro('test plot', df, "dS", "Q", "Q_obs")
