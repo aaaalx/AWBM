@@ -365,6 +365,8 @@ for C3_i in bounds_C3:
                 plt.savefig(dir_plots+out_filename+'.png', format='png',bbox_inches="tight")
                 plt.close() # Remove plot from memory after save to file
                 
+                # TODO: print skill scores on the plot
+                
         toc_c1 = time.time() - tic_c1
         aaa_est_s_per_sim = toc_c1/len(bounds_C1)
         aaa_est_sim_duration = total_sims * aaa_est_s_per_sim

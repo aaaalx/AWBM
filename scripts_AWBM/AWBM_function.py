@@ -68,15 +68,11 @@ def AWBM_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_
         # print("...Done day 0")
         
     else: # for all subsequent timesteps
-        # first, update the day column in df     
-
-                        
+        # first, update the day column in df                
         df.loc[i_day,'dS'] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
         df.loc[i_day,'E'] = df_SILO_data_cal['E[mm]'][i_day] 
         df.loc[i_day,'P'] = df_SILO_data_cal['P[mm]'][i_day] 
         
-        
-                    
         # Calculating storage levels and overflows 
         S1_t = max(df.loc[i_day-1,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
         df.loc[i_day,'S1_E'] = max(S1_t - C1,0) # calculates the excess
