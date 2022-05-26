@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = 'empty-project-type'
-recent_files = ['scripts_AWBM\\storage_interp.py', 'scripts_AWBM\\AWBM-UrbanCatchmentExample.py', 'scripts_AWBM\\AWBM-Gregors-V3.py', 'scripts_AWBM\\AWBM-Calibration.py']
+recent_files = ['scripts_AWBM\\AWBM-Calibration.py', 'scripts_AWBM\\AWBM-Forecast.py', 'scripts_AWBM\\AWBM_function.py']
 
 [main]
 version = 0.2.0
