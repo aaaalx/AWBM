@@ -17,19 +17,21 @@ wdir='//fs07.watech.local/redirected folders$/alex.xynias/My Documents/GitHub/AW
 # =============================================================================
 import os     
 import time                                
-import numpy as np                             
+# import numpy as np                             
 import pandas as pd                           
-import datetime as dt
-import glob  
+# import datetime as dt
+# import glob  
 
 from AWBM_function import AWBM_function 
 
 tic_script = time.time() #starts the run time timer
 
-dir_out = r"C:\Users\alex.xynias\OneDrive - Water Technology Pty Ltd\UQ\Thesis\output_AWBM-Forecast"
+# dir_out = r"C:\Users\alex.xynias\OneDrive - Water Technology Pty Ltd\UQ\Thesis\output_AWBM-Forecast"
+dir_out = r"C:\Users\Alex\OneDrive\Documents\Uni\Honours Thesis\output_AWBM-Forecast"
     # Parent folder for result files to be written to
 
-dir_batch_input = r"C:\Users\alex.xynias\OneDrive - Water Technology Pty Ltd\UQ\Thesis\input_AWBM_forecast.csv"
+dir_batch_input = r"C:\Users\Alex\OneDrive\Documents\Uni\Honours Thesis\input_AWBM_forecast.csv"
+# dir_batch_input = r"C:\Users\alex.xynias\OneDrive - Water Technology Pty Ltd\UQ\Thesis\input_AWBM_forecast.csv"
     # The directory of the batch input file joins with the subdir_data column to locate the data
     
 dir_in_data = dir_batch_input[:-len(dir_batch_input.split("\\")[-1])]
@@ -81,7 +83,7 @@ nSims = len(df_batch_input)
 
 for i_sim in range(0,nSims): # for each row in the batch input...
     tic_sim = time.time() # starts timer for simulation runtime    
-    print(f'Loading input for sim#{i_sim+1}/{nSims}...')    
+    print(f'sim#{i_sim+1}/{nSims}...')    
     
     ID_scenario = df_batch_input.iloc[i_sim]['scenario_id']
     subdir_data = df_batch_input.iloc[i_sim]['subdir_data']
@@ -94,13 +96,13 @@ for i_sim in range(0,nSims): # for each row in the batch input...
     # Use the above input to prepare data (df_data) for AWBM_function
     dir_data_in_full = os.path.join(dir_in_data,subdir_data)
     
-    print(f'Loading input data for {ID_scenario}...')
+    print(f'   Loading input data for {ID_scenario}...')
     df_data = pd.read_csv(dir_data_in_full, parse_dates=[CN_time],usecols=[CN_time,CN_P,CN_E])    
         # Also drops input columns which aren't [CN_time,CN_P,CN_E]
     
-    print('   Done!')
+    print('      Done!')
     
-    print(f'Preparing input data for {ID_scenario}...')
+    print(f'   Preparing input data for {ID_scenario}...')
     # Calculate net change in stores (P-E)
     df_data['dS'] = df_data[CN_P]-df_data[CN_E]
     
@@ -111,9 +113,9 @@ for i_sim in range(0,nSims): # for each row in the batch input...
     # Reset integer index after trim
     df_data.reset_index(inplace=True,drop=True)
       
-    print('   Done!')
+    print('      Done!')
       
-    print(f'Initialising df_AWBM_results...')
+    print(f'   Initialising df_AWBM_results...')
     headers_AWBM_results = ['Date'
                        ,'P','E'
                       ,'dS'
@@ -140,18 +142,25 @@ for i_sim in range(0,nSims): # for each row in the batch input...
                 ]
     
     df_AWBM_results.loc[0] = data_day0
-    print('   Done!')
+    print('      Done!')
 # =============================================================================
 #%% Run the AWBM function for this sim
 # =============================================================================
-    print(f'AWBM started at {time.asctime(time.localtime())}...')
+    print(f'   AWBM started at {time.asctime(time.localtime())}...')
     tic_sim_AWBM = time.time()
     for i_day in range(0,nTS):
-        AWBM_function(i_day,df_AWBM_results,df_data,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A)
+        AWBM_function(i_day,df_AWBM_results,df_data,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A,CN_P,CN_E)
     
+    
+        # TODO: fancy progress bar?
+        if i_day % 10000 == 0: # If the timestep is divisible by 1000....
+            toc_sim_AWBM = time.time() - tic_sim_AWBM
+            print(f'      {i_day}/{nTS} reached in {round(toc_sim_AWBM)}s')
+            
     toc_sim_AWBM = time.time() - tic_sim_AWBM
     toc_sim = time.time() - tic_sim
-    print(f'   Finished at {time.asctime(time.localtime())}...')
+    print(f'      Finished at {time.asctime(time.localtime())}...')
+    print(f'         {toc_sim_AWBM}seconds')
     
     
     
@@ -160,7 +169,7 @@ for i_sim in range(0,nSims): # for each row in the batch input...
 # =============================================================================
 # %% Save df_AWBM_results to dir_out
 # =============================================================================
-    print('Saving {ID_scenario} results to file..')
+    print(f'Saving {ID_scenario} results to file..')
     
     i_fn_out = os.path.join(dir_out,f'RAWresultsAWBM_{ID_scenario}.csv')
     
