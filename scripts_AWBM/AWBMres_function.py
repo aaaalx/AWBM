@@ -36,19 +36,8 @@ This version of the function includes a conceptual simulation the volume of the 
 # =============================================================================
 
 
-def AWBMres_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A):
-    threshold_resVolume = float(1354209000) # Aproximate max combined volume [m^3] of Wivenhoe and Somerset before water is released.
-        # Operational volume of 1051460 ML at wivenhoe and 302749 ML at Somerset (1354209ML = 1354209000m^3)
-            # Flood mitigation capacity of 1967000ML at wivenhoe
-    outflow_human = float(750000) # Aproximate volume of outflows due to human demand.
-        # a goal of 150 LPD is cited on the recent Water Security Status Report
-            # but the reservoir also supplies industry (agriculture) water via 'Water Supply Schemes' ?
-    
-        # Using an aproximate 200LPD with the current population of SEQ being around 3.8E+6
-            # Gives 720ML per day. I'll use 750ML (750000m^3) as a placeholder for now
-        
-    if i_day == 0: # set up condition for first timestep
-  
+def AWBMres_function(i_day,df,df_data,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,SS_0,Ksurf,A,CN_P,CN_E,threshold_resVolume,outflow_human,A_res):
+    if i_day == 0: # set up condition for first timestep  
        
     # Calculating storage levels and overflows 
         S1_t = max(df.loc[i_day,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
@@ -92,9 +81,9 @@ def AWBMres_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,
         
     else: # for all subsequent timesteps
         # first, update the day column in df                
-        df.loc[i_day,'dS'] = df_SILO_data_cal['dS'][i_day] # gets dS from silo calibration df
-        df.loc[i_day,'E'] = df_SILO_data_cal['E[mm]'][i_day] 
-        df.loc[i_day,'P'] = df_SILO_data_cal['P[mm]'][i_day] 
+        df.loc[i_day,'dS'] = df_data['dS'][i_day] # gets dS from silo calibration df
+        df.loc[i_day,'E'] = df_data[CN_E][i_day] 
+        df.loc[i_day,'P'] = df_data[CN_P][i_day] 
         
         # Calculating storage levels and overflows 
         S1_t = max(df.loc[i_day-1,'S1']+df.loc[i_day,'dS'],0) # calculates Soil store + (P-E) > 0 
@@ -131,15 +120,33 @@ def AWBMres_function(i_day,df,df_SILO_data_cal,C1,C2,C3,A1,A2,A3,BFI,BS_0,Kbase,
             # 1e6 to convert catchment size from km^2 to m^2
             # 1e-3 to convert Qtotal from mm to m  
 
-        df.loc[i_day,'resVolume[m3]'] = df.loc[i_day,'Q'] + df.loc[i_day-1,'resVolume[m3]'] # Adds new inflows into storage
-            # TODO: remove evap*A_res from resVolume before spill and human outflow
+        df.loc[i_day,'resVolume[m3]'] = df.loc[i_day,'Q'] + df.loc[i_day-1,'resVolume[m3]'] # Adds new inflows into the "lake" storage var
+        
             
-        
-        
+        # Add the reservoir area to the results output for later checking if needed. 
+        df.loc[i_day,'A_res'] = A_res 
+            # From the QGIS layer; the reservoir storage area is aprox 45.7+113.8km^2
+
+        # Because the AWBM catchment area already includes the surface area of the lakes,
+        #   There is already direct rainfall being introduced into the system.
+        #   This step will use E (rather than) dS to avoid accounting for that rainfall twice.        
+
+        df.loc[i_day,'resEvapLoss[m3]'] = (df.loc[i_day,CN_E]/1000) * (df.loc[i_day,'A_res']*10000)
+        df.loc[i_day,'resVolume[m3]'] = df.loc[i_day,'resVolume[m3]'] - df.loc[i_day,'resEvapLoss[m3]']
+            # A_res is given in Ha, convert this to m^2 with *10000
+            # Evap is in mm, and needs to be converted ( into m in order to match 
+
+        # Remove outflows from human demand and agriculture from the resVolume
+        df.loc[i_day,'resVolume[m3]'] = df.loc[i_day,'resVolume[m3]'] - outflow_human
 
 
-
-
+        # Spill condition
+        if df.loc[i_day,'resVolume[m3]'] >= threshold_resVolume:
+            # Record the water being spilt during the timestep
+            df.loc[i_day,'resSpill[m3]'] = threshold_resVolume - df.loc[i_day,'resVolume[m3]']
+            # Remove the excess water from the res
+            df.loc[i_day,'resVolume[m3]'] = threshold_resVolume
+            
 
 
 
